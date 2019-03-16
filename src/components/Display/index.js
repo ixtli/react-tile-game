@@ -1,8 +1,9 @@
 import React from "react";
 
-import {attach, destroy} from "../../gl/main";
+import { attach, destroy } from "../../gl/main";
+import styled from "styled-components";
 
-export default class Display extends React.Component {
+class Display extends React.Component {
   constructor(props) {
     super(props);
     this.ref = React.createRef();
@@ -18,6 +19,12 @@ export default class Display extends React.Component {
   }
 
   render() {
-    return <canvas id={"game"} ref={this.ref} />;
+    return (
+      <canvas id={"game"} className={this.props.className} ref={this.ref} />
+    );
   }
 }
+
+export default styled(Display)`
+  display: block;
+`;
