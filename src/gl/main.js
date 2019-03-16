@@ -13,11 +13,15 @@ export function destroy() {
   }
 }
 
+/**
+ *
+ * @param canvas {HTMLElement}
+ */
 export function attach(canvas) {
   if (_renderer) {
     console.warn("Overriding renderer.");
   }
 
   _renderer = new Renderer(canvas);
-  _renderer.start();
+  _renderer.start().catch(error => console.error("Start failed", error));
 }
