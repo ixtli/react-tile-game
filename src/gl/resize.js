@@ -32,7 +32,6 @@ function nativeResizeCallback() {
   if (!_running) {
     _running = true;
     requestAnimationFrame(() => {
-      window.dispatchEvent(new CustomEvent("optimizedResize"));
       _lastWidth = window.innerWidth;
       _lastHeight = window.innerHeight;
       const len = _queue.length;
@@ -52,7 +51,7 @@ window.addEventListener("resize", nativeResizeCallback);
  * @param callback {function(number, number)}
  * @return {{width: number, height: number}}
  */
-export function listen(name, callback) {
+export function listenForResize(name, callback) {
   _queue.push(callback);
   _names[name] = _queue.length - 1;
   console.log("Started listening: " + name);
@@ -64,7 +63,7 @@ export function listen(name, callback) {
  *
  * @param name {string}
  */
-export function stopListening(name) {
+export function stopListeningForResize(name) {
   const idx = _names[name];
   console.assert(idx, "No such listener: " + name);
   _queue.splice(idx, 1);

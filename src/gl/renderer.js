@@ -1,8 +1,8 @@
 import * as THREE from "three";
-import { listen, stopListening } from "./resize";
-
-import hex from "./reference-hex-processed.png";
-import { loadSpriteMaterial } from "./hex-sprite";
+import { listenForResize, stopListeningForResize } from "./resize";
+import { listenForKeydown, stopListeningForKeydown } from "./keydown";
+import ChunkRenderer from "./map/map-chunk";
+import { TILE_PIXEL_LENGTH } from "../config";
 
 function isWebGL2Available() {
   try {
@@ -26,8 +26,9 @@ export default class Renderer {
    */
   static _rendererCount = 0;
 
-  static _mapWidth = 100;
-  static _mapHeight = 100;
+  static KEY_JUMP_SIZE = 25;
+  static MAP_WIDTH = 100;
+  static MAP_HEIGHT = 100;
 
   constructor(canvas) {
     /**
@@ -50,7 +51,8 @@ export default class Renderer {
      */
     this._renderer = new THREE.WebGLRenderer({
       canvas,
-      context: this._context
+      context: this._context,
+      stencilBuffer: false
     });
 
     /**
@@ -66,6 +68,9 @@ export default class Renderer {
      * @private
      */
     this._camera = new THREE.OrthographicCamera(1, 1, 1, 1, 0, 10);
+    this._camera.position.z = 1;
+    this._camera.position.x = 0;
+    this._camera.position.y = 0;
 
     /**
      *
@@ -74,23 +79,21 @@ export default class Renderer {
      */
     this._index = Renderer._rendererCount++;
 
-    const { width, height } = listen(this.listenerName(), this.resize);
+    /**
+     *
+     * @type {Int8Array}
+     * @private
+     */
+    this._map = new Int8Array(Renderer.MAP_WIDTH * Renderer.MAP_HEIGHT);
 
     /**
      *
-     * @type {number}
+     * @type {boolean}
      * @private
      */
-    this._screenWidth = width;
+    this._dirty = true;
 
-    /**
-     *
-     * @type {number}
-     * @private
-     */
-    this._screenHeight = height;
-
-    this._map = new Array(Renderer._mapWidth * Renderer._mapHeight);
+    this._chunkRenderer = new ChunkRenderer();
   }
 
   /**
@@ -99,6 +102,15 @@ export default class Renderer {
    */
   listenerName() {
     return "renderer-" + this._index;
+  }
+
+  generateMap() {
+    const map = this._map;
+    const size = map.length;
+    const materialCount = this._chunkRenderer.materialsCount();
+    for (let i = size; i >= 0; i--) {
+      map[i] = Math.floor(Math.random() * materialCount);
+    }
   }
 
   /**
@@ -112,54 +124,131 @@ export default class Renderer {
     this._camera.right = width;
     this._camera.top = height;
     this._camera.bottom = 0;
-    this._camera.position.z = 1;
-    this._camera.updateProjectionMatrix();
-    this._screenWidth = width;
-    this._screenHeight = height;
 
-    this.render();
+    // this._regenerateTileArray(tilesWide, tilesHigh);
+
+    this._chunkRenderer.windowResized(width, height);
+
+    this._dirty = true;
   };
 
-  destroy() {
-    stopListening(this.listenerName());
-  }
+  _regenerateTileArray(tilesWide, tilesHigh) {
+    const oldLength = this._tiles.length;
+    const newLength = tilesWide * tilesHigh;
 
-  /**
-   *
-   * @param material
-   * @return {Sprite}
-   */
-  static newHexSprite(material) {
-    const width = material.map.image.width;
-    const height = material.map.image.height;
-    var sprite = new THREE.Sprite(material);
-    sprite.center.set(0, 1);
-    sprite.scale.set(width, height, 1);
-    return sprite;
-  }
+    if (oldLength === newLength) {
+      return;
+    }
 
-  async start() {
-    const material = await loadSpriteMaterial(hex);
+    const oldTiles = this._tiles;
+    const newTiles = new Array(newLength);
 
-    let even = false;
-    let xOffset = 0;
-    let yOffset = 0;
-    for (let y = 0; y < Renderer._mapHeight; y++) {
-      even = !even;
-      xOffset = even ? 31 : 0;
-      yOffset = y * (63 - 17);
-      for (let x = 0; x < Renderer._mapWidth; x++) {
-        const sprite = Renderer.newHexSprite(material);
-        sprite.position.set(x * 62 + xOffset, yOffset, 1);
+    const copyTarget = Math.min(newLength, oldLength);
+    for (let i = 0; i < copyTarget; i++) {
+      const y = Math.floor(i / tilesWide);
+      const x = i % tilesWide;
+      const sprite = oldTiles[i];
+      sprite.position.set(x * TILE_PIXEL_LENGTH, y * TILE_PIXEL_LENGTH, 1);
+      newTiles[i] = sprite;
+    }
+
+    if (copyTarget < newLength) {
+      for (let i = copyTarget; i < newLength; i++) {
+        var sprite = new THREE.Sprite();
+        const y = Math.floor(i / tilesWide);
+        const x = i % tilesWide;
+        sprite.center.set(0, 0);
+        sprite.scale.set(TILE_PIXEL_LENGTH, TILE_PIXEL_LENGTH, 1);
+        sprite.position.set(x * TILE_PIXEL_LENGTH, y * TILE_PIXEL_LENGTH, 1);
+        sprite.material = this._materials[this._map[i]];
         this._scene.add(sprite);
-        this._map[y * Renderer._mapHeight + x] = sprite;
+        newTiles[i] = sprite;
+      }
+    } else {
+      for (let i = copyTarget; i < oldLength; i++) {
+        this._scene.remove(oldTiles[i]);
       }
     }
 
+    this._tiles = newTiles;
+
+    console.log(
+      "regenerated",
+      newLength,
+      "tiles (",
+      tilesWide,
+      "x",
+      tilesHigh,
+      ")"
+    );
+  }
+
+  destroy() {
+    stopListeningForResize(this.listenerName());
+    stopListeningForKeydown(this.listenerName());
+  }
+
+  keydown = key => {
+    let delta = false;
+    switch (key) {
+      case "w":
+        this._camera.position.y += Renderer.KEY_JUMP_SIZE;
+        delta = true;
+        break;
+      case "s":
+        this._camera.position.y -= Renderer.KEY_JUMP_SIZE;
+        delta = true;
+        break;
+      case "a":
+        this._camera.position.x -= Renderer.KEY_JUMP_SIZE;
+        delta = true;
+        break;
+      case "d":
+        this._camera.position.x += Renderer.KEY_JUMP_SIZE;
+        delta = true;
+        break;
+      default:
+        break;
+    }
+
+    if (delta) {
+      this._dirty = true;
+    }
+  };
+
+  start() {
+    listenForResize(this.listenerName(), this.resize);
+    listenForKeydown(this.listenerName(), this.keydown);
+
+    const map = this._chunkRenderer.renderChunk(
+      this._renderer,
+      0,
+      0,
+      Renderer.MAP_WIDTH,
+      this._map
+    );
+
+    var m = new THREE.SpriteMaterial({ map: map.texture });
+    var s = new THREE.Sprite();
+    s.center.set(0,0);
+    s.scale.set(map.width, map.height, 1);
+    s.position.set(0,0,1);
+    s.material = m;
+    this._scene.add(s);
+
     this.render();
   }
 
-  render() {
+  render = () => {
+    requestAnimationFrame(this.render);
+
+    if (!this._dirty) {
+      return;
+    }
+
+    this._camera.updateProjectionMatrix();
     this._renderer.render(this._scene, this._camera);
-  }
+
+    this._dirty = false;
+  };
 }

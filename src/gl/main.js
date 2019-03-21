@@ -23,5 +23,6 @@ export function attach(canvas) {
   }
 
   _renderer = new Renderer(canvas);
-  _renderer.start().catch(error => console.error("Start failed", error));
+  _renderer.generateMap();
+  _renderer.start();
 }
