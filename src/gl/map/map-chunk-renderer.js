@@ -1,6 +1,24 @@
 import Chunk from "./map-chunk";
 import * as THREE from "three";
-import { CHUNK_PIXEL_LENGTH, TILE_PIXEL_LENGTH } from "../../config";
+import {
+  CHUNK_PIXEL_LENGTH,
+  CHUNK_TILE_LENGTH,
+  TILE_PIXEL_LENGTH
+} from "../../config";
+
+/**
+ *
+ * @param width {number}
+ * @param height {number}
+ * @return {HTMLElement | OffscreenCanvas}
+ */
+function getOffscreenCanvas(width, height) {
+  if (window.hasOwnProperty("OffscreenCanvas")) {
+    return new window.OffscreenCanvas(width, height);
+  } else {
+    return document.createElement("canvas");
+  }
+}
 
 export default class ChunkRenderer {
   constructor() {
@@ -28,13 +46,13 @@ export default class ChunkRenderer {
      * @private
      */
     this._materials = [
-      this._greenTile(0.1),
-      this._greenTile(0.2),
-      this._greenTile(0.3),
-      this._greenTile(0.4),
-      this._greenTile(0.5),
-      this._greenTile(0.6),
-      this._greenTile(0.7)
+      ChunkRenderer._greenTile(0.1),
+      ChunkRenderer._greenTile(0.2),
+      ChunkRenderer._greenTile(0.3),
+      ChunkRenderer._greenTile(0.4),
+      ChunkRenderer._greenTile(0.5),
+      ChunkRenderer._greenTile(0.6),
+      ChunkRenderer._greenTile(0.7)
     ];
 
     /**
@@ -43,24 +61,66 @@ export default class ChunkRenderer {
      * @private
      */
     this._chunks = [];
+
+    /**
+     *
+     * @type {number}
+     * @private
+     */
+    this._chunksWide = 0;
+
+    /**
+     *
+     * @type {number}
+     * @private
+     */
+    this._chunksHigh = 0;
+
+    /**
+     *
+     * @type {number}
+     * @private
+     */
+    this._lastLeft = -1;
+
+    /**
+     *
+     * @type {number}
+     * @private
+     */
+    this._lastTop = -1;
   }
 
-  windowResized(width, height) {
+  /**
+   *
+   * @param width {number}
+   * @param height {number}
+   * @param parentScene {Scene}
+   */
+  windowResized(width, height, parentScene) {
     const chunksWide = Math.ceil(width / CHUNK_PIXEL_LENGTH) + 2;
     const chunksHigh = Math.ceil(height / CHUNK_PIXEL_LENGTH) + 2;
     const oldChunkCount = this._chunks.length;
     const newChunkCount = chunksWide * chunksHigh;
 
+    this._chunksHigh = chunksHigh;
+    this._chunksWide = chunksWide;
+
     if (oldChunkCount === newChunkCount) {
       return;
     }
 
+    const difference = Math.abs(oldChunkCount - newChunkCount);
+
+    console.time("windowResized()");
+
     if (oldChunkCount > newChunkCount) {
-      const difference = oldChunkCount - newChunkCount;
       for (let i = newChunkCount; i < oldChunkCount; i++) {
+        parentScene.remove(this._chunks[i].getSprite());
         this._chunks[i].dispose();
       }
       this._chunks.splice(newChunkCount, difference);
+      console.timeEnd("windowResized()");
       console.log("Destroyed", difference, "chunks (", newChunkCount, ")");
       return;
     }
@@ -68,7 +128,11 @@ export default class ChunkRenderer {
     for (let i = oldChunkCount; i < newChunkCount; i++) {
       const newChunk = new Chunk();
       this._chunks.push(newChunk);
+      parentScene.add(newChunk.getSprite());
     }
+
+    console.timeEnd("windowResized()");
+    console.log("Created", difference, "chunks (", newChunkCount, ")");
   }
 
   materialsCount() {
@@ -83,7 +147,7 @@ export default class ChunkRenderer {
    * @return {SpriteMaterial}
    */
   static generateTileMaterial(r, g, b) {
-    const canvas = new OffscreenCanvas(TILE_PIXEL_LENGTH, TILE_PIXEL_LENGTH);
+    const canvas = getOffscreenCanvas(TILE_PIXEL_LENGTH, TILE_PIXEL_LENGTH);
     const ctx = canvas.getContext("2d");
     ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
     ctx.fillRect(0, 0, TILE_PIXEL_LENGTH, TILE_PIXEL_LENGTH);
@@ -91,7 +155,7 @@ export default class ChunkRenderer {
     return new THREE.SpriteMaterial({ map });
   }
 
-  _greenTile(lightness) {
+  static _greenTile(lightness) {
     return ChunkRenderer.generateTileMaterial(
       0,
       100 + Math.floor(150 * lightness),
@@ -102,32 +166,34 @@ export default class ChunkRenderer {
   /**
    *
    * @param renderer {WebGLRenderer}
-   * @param leftStart {number}
-   * @param topStart {number}
-   * @param mapWidth {number}
-   * @param map {Int8Array}
-   * @returns {WebGLRenderTarget}
-   */
-  renderChunk(renderer, leftStart, topStart, mapWidth, map) {
-    const idx = 0;
-    const ret = this._textures[idx];
-    ret.setSize(CHUNK_PIXEL_LENGTH, CHUNK_PIXEL_LENGTH);
-    const scene = this._chunks[idx]
-      .update(leftStart, topStart, mapWidth, map, this._materials)
-      .scene();
-    renderer.setRenderTarget(ret);
-    renderer.render(scene, this._camera);
-    renderer.setRenderTarget(null);
-    return ret;
-  }
-
-  /**
-   *
-   * @param renderer {WebGLRenderer}
-   * @param topLeft {number} The top left
-   * @param topRight
-   * @param mapWidth
+   * @param left {number} the X index of the start chunk
+   * @param top {number} the Y index of the start chunk
    * @param map
    */
-  refreshChunks(renderer, topLeft, topRight, mapWidth, map) {}
+  refreshChunks(renderer, left, top, map) {
+    console.time("refreshChunks()");
+
+    const chunksWide = this._chunksWide;
+    const chunksHigh = this._chunksHigh;
+    const materials = this._materials;
+    const camera = this._camera;
+
+    let idx = 0;
+    for (let y = 0; y < chunksHigh; y++) {
+      for (let x = 0; x < chunksWide; x++) {
+        const sprite = this._chunks[idx++]
+          .update(x * CHUNK_TILE_LENGTH, y * CHUNK_TILE_LENGTH, map, materials)
+          .render(renderer, camera)
+          .getSprite();
+
+        sprite.position.set(x * CHUNK_PIXEL_LENGTH, y * CHUNK_PIXEL_LENGTH, 1);
+      }
+    }
+
+    renderer.setRenderTarget(null);
+    this._lastLeft = left;
+    this._lastTop = top;
+
+    console.timeEnd("refreshChunks()");
+  }
 }

@@ -1,8 +1,8 @@
 import * as THREE from "three";
 import { listenForResize, stopListeningForResize } from "./resize";
 import { listenForKeydown, stopListeningForKeydown } from "./keydown";
-import ChunkRenderer from "./map/map-chunk";
-import { TILE_PIXEL_LENGTH } from "../config";
+import ChunkRenderer from "./map/map-chunk-renderer";
+import { MAP_TILES_HIGH, MAP_TILES_WIDE } from "../config";
 
 function isWebGL2Available() {
   try {
@@ -27,8 +27,6 @@ export default class Renderer {
   static _rendererCount = 0;
 
   static KEY_JUMP_SIZE = 25;
-  static MAP_WIDTH = 100;
-  static MAP_HEIGHT = 100;
 
   constructor(canvas) {
     /**
@@ -84,7 +82,7 @@ export default class Renderer {
      * @type {Int8Array}
      * @private
      */
-    this._map = new Int8Array(Renderer.MAP_WIDTH * Renderer.MAP_HEIGHT);
+    this._map = new Int8Array(MAP_TILES_WIDE * MAP_TILES_HIGH);
 
     /**
      *
@@ -93,6 +91,11 @@ export default class Renderer {
      */
     this._dirty = true;
 
+    /**
+     *
+     * @type {ChunkRenderer}
+     * @private
+     */
     this._chunkRenderer = new ChunkRenderer();
   }
 
@@ -125,63 +128,10 @@ export default class Renderer {
     this._camera.top = height;
     this._camera.bottom = 0;
 
-    // this._regenerateTileArray(tilesWide, tilesHigh);
-
-    this._chunkRenderer.windowResized(width, height);
+    this._chunkRenderer.windowResized(width, height, this._scene);
 
     this._dirty = true;
   };
-
-  _regenerateTileArray(tilesWide, tilesHigh) {
-    const oldLength = this._tiles.length;
-    const newLength = tilesWide * tilesHigh;
-
-    if (oldLength === newLength) {
-      return;
-    }
-
-    const oldTiles = this._tiles;
-    const newTiles = new Array(newLength);
-
-    const copyTarget = Math.min(newLength, oldLength);
-    for (let i = 0; i < copyTarget; i++) {
-      const y = Math.floor(i / tilesWide);
-      const x = i % tilesWide;
-      const sprite = oldTiles[i];
-      sprite.position.set(x * TILE_PIXEL_LENGTH, y * TILE_PIXEL_LENGTH, 1);
-      newTiles[i] = sprite;
-    }
-
-    if (copyTarget < newLength) {
-      for (let i = copyTarget; i < newLength; i++) {
-        var sprite = new THREE.Sprite();
-        const y = Math.floor(i / tilesWide);
-        const x = i % tilesWide;
-        sprite.center.set(0, 0);
-        sprite.scale.set(TILE_PIXEL_LENGTH, TILE_PIXEL_LENGTH, 1);
-        sprite.position.set(x * TILE_PIXEL_LENGTH, y * TILE_PIXEL_LENGTH, 1);
-        sprite.material = this._materials[this._map[i]];
-        this._scene.add(sprite);
-        newTiles[i] = sprite;
-      }
-    } else {
-      for (let i = copyTarget; i < oldLength; i++) {
-        this._scene.remove(oldTiles[i]);
-      }
-    }
-
-    this._tiles = newTiles;
-
-    console.log(
-      "regenerated",
-      newLength,
-      "tiles (",
-      tilesWide,
-      "x",
-      tilesHigh,
-      ")"
-    );
-  }
 
   destroy() {
     stopListeningForResize(this.listenerName());
@@ -220,21 +170,7 @@ export default class Renderer {
     listenForResize(this.listenerName(), this.resize);
     listenForKeydown(this.listenerName(), this.keydown);
 
-    const map = this._chunkRenderer.renderChunk(
-      this._renderer,
-      0,
-      0,
-      Renderer.MAP_WIDTH,
-      this._map
-    );
-
-    var m = new THREE.SpriteMaterial({ map: map.texture });
-    var s = new THREE.Sprite();
-    s.center.set(0,0);
-    s.scale.set(map.width, map.height, 1);
-    s.position.set(0,0,1);
-    s.material = m;
-    this._scene.add(s);
+    this._chunkRenderer.refreshChunks(this._renderer, 0, 0, this._map);
 
     this.render();
   }
