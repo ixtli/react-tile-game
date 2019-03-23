@@ -1,28 +1,14 @@
 import Chunk from "./map-chunk";
 import * as THREE from "three";
-import {
-  CHUNK_PIXEL_LENGTH,
-  CHUNK_TILE_LENGTH,
-  TILE_PIXEL_LENGTH
-} from "../../config";
-
-/**
- *
- * @param width {number}
- * @param height {number}
- * @return {HTMLCanvasElement}
- */
-function getOffscreenCanvas(width, height) {
-  if (window.hasOwnProperty("OffscreenCanvas")) {
-    return new window.OffscreenCanvas(width, height);
-  } else {
-    // noinspection JSValidateTypes
-    return document.createElement("canvas");
-  }
-}
+import { CHUNK_PIXEL_LENGTH, CHUNK_TILE_LENGTH } from "../../config";
 
 export default class ChunkRenderer {
-  constructor() {
+
+  /**
+   *
+   * @param materials {TileMaterialManager}
+   */
+  constructor(materials) {
     /**
      *
      * @type {OrthographicCamera}
@@ -40,21 +26,6 @@ export default class ChunkRenderer {
     this._camera.position.x = 0;
     this._camera.position.y = 0;
     this._camera.updateProjectionMatrix();
-
-    /**
-     *
-     * @type {SpriteMaterial[]}
-     * @private
-     */
-    this._materials = [
-      ChunkRenderer._greenTile(0.1),
-      ChunkRenderer._greenTile(0.2),
-      ChunkRenderer._greenTile(0.3),
-      ChunkRenderer._greenTile(0.4),
-      ChunkRenderer._greenTile(0.5),
-      ChunkRenderer._greenTile(0.6),
-      ChunkRenderer._greenTile(0.7)
-    ];
 
     /**
      *
@@ -90,6 +61,13 @@ export default class ChunkRenderer {
      * @private
      */
     this._lastTop = -1;
+
+    /**
+     *
+     * @type {SpriteMaterial[]}
+     * @private
+     */
+    this._materialArray = materials.getMaterialArray();
   }
 
   /**
@@ -160,33 +138,6 @@ export default class ChunkRenderer {
     console.log("Created", difference, "chunks (", newChunkCount, ")");
   }
 
-  materialsCount() {
-    return this._materials.length;
-  }
-
-  /**
-   *
-   * @param r {number}
-   * @param g {number}
-   * @param b {number}
-   * @return {SpriteMaterial}
-   */
-  static generateTileMaterial(r, g, b) {
-    const canvas = getOffscreenCanvas(TILE_PIXEL_LENGTH, TILE_PIXEL_LENGTH);
-    const ctx = canvas.getContext("2d", { alpha: false });
-    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-    ctx.fillRect(0, 0, TILE_PIXEL_LENGTH, TILE_PIXEL_LENGTH);
-    return new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas) });
-  }
-
-  static _greenTile(lightness) {
-    return ChunkRenderer.generateTileMaterial(
-      0,
-      100 + Math.floor(150 * lightness),
-      0
-    );
-  }
-
   /**
    *
    * @param renderer {WebGLRenderer}
@@ -199,20 +150,20 @@ export default class ChunkRenderer {
 
     const chunksWide = this._chunksWide;
     const chunksHigh = this._chunksHigh;
-    const materials = this._materials;
+    const textures = this._materialArray;
     const camera = this._camera;
 
     let idx = 0;
     for (let y = 0; y < chunksHigh; y++) {
       for (let x = 0; x < chunksWide; x++) {
         this._chunks[idx++]
-          .update(x * CHUNK_TILE_LENGTH, y * CHUNK_TILE_LENGTH, map, materials)
-          .render(renderer, camera)
-          .getMesh();
+          .update(x * CHUNK_TILE_LENGTH, y * CHUNK_TILE_LENGTH, map, textures)
+          .render(renderer, camera);
       }
     }
 
     renderer.setRenderTarget(null);
+
     this._lastLeft = left;
     this._lastTop = top;
 
@@ -221,6 +172,5 @@ export default class ChunkRenderer {
 
   dispose() {
     this._chunks.forEach(chunk => chunk.dispose());
-    this._materials.forEach(material => material.map.dispose());
   }
 }

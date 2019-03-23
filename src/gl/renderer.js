@@ -3,29 +3,9 @@ import { listenForResize, stopListeningForResize } from "./resize";
 import { listenForKeydown, stopListeningForKeydown } from "./keydown";
 import ChunkRenderer from "./map/map-chunk-renderer";
 import { MAP_TILES_HIGH, MAP_TILES_WIDE } from "../config";
-import Stats from "stats-js";
-
-/**
- * @type {{begin: function(), end: function(), showPanel: function(number):
- *   void, dom: HTMLElement}}
- */
-const STATS = new Stats();
-STATS.showPanel(0);
-document.body.append(STATS.dom);
-
-function isWebGL2Available() {
-  try {
-    const canvas = document.createElement("canvas");
-    // noinspection JSUnresolvedVariable
-    return !!(window.WebGL2RenderingContext && canvas.getContext("webgl2"));
-  } catch (e) {
-    return false;
-  }
-}
-
-if (!isWebGL2Available()) {
-  throw new Error("WebGL 2.0 is required.");
-}
+import { stats } from "../util/stats-wrapper";
+import { getWebGLContextFromCanvas } from "../util/compatability";
+import { TileMaterialManager } from "./tile-materials-manager";
 
 export default class Renderer {
   /**
@@ -35,91 +15,137 @@ export default class Renderer {
    */
   static _rendererCount = 0;
 
+  /**
+   *
+   * @type {number}
+   */
   static KEY_JUMP_SIZE = 32;
 
+  /**
+   *
+   * @type {Object.<String, *>}
+   */
+  static RENDERER_OPTIONS = {
+    stencilBuffer: false
+  };
+
+  /**
+   *
+   * @type {Scene}
+   * @private
+   */
+  _scene = new THREE.Scene();
+
+  /**
+   *
+   * @type {OrthographicCamera}
+   * @private
+   */
+  _camera = new THREE.OrthographicCamera(1, 1, 1, 1, 0, 1);
+
+  /**
+   *
+   * @type {number}
+   * @private
+   */
+  _index = Renderer._rendererCount++;
+
+  /**
+   *
+   * @type {boolean}
+   * @private
+   */
+  _rendering = false;
+
+  /**
+   *
+   * @type {number}
+   * @private
+   */
+  _cameraDeltaX = 0;
+
+  /**
+   *
+   * @type {number}
+   * @private
+   */
+  _cameraDeltaY = 0;
+
+  /**
+   *
+   * @type {TileMaterialManager}
+   * @private
+   */
+  _tileMaterials = new TileMaterialManager();
+
+  /**
+   *
+   * @type {ChunkRenderer}
+   * @private
+   */
+  _chunkRenderer = new ChunkRenderer(this._tileMaterials);
+
+  /**
+   *
+   * @type {Int16Array}
+   * @private
+   */
+  _map = new Int16Array(MAP_TILES_WIDE * MAP_TILES_HIGH);
+
+  /**
+   *
+   * @type {WebGLRenderer}
+   * @private
+   */
+  _renderer = null;
+
+  /**
+   *
+   * @type {WebGLRenderingContext}
+   * @private
+   */
+  _context = null;
+
+  /**
+   * @type {HTMLCanvasElement}
+   * @private
+   */
+  _canvas = null;
+
+  /**
+   *
+   * @param canvas {HTMLCanvasElement}
+   */
   constructor(canvas) {
-    /**
-     * @type {HTMLElement}
-     * @private
-     */
     this._canvas = canvas;
-
-    /**
-     *
-     * @type {WebGLRenderingContext | CanvasRenderingContext2D}
-     * @private
-     */
-    this._context = this._canvas.getContext("webgl2");
-
-    /**
-     *
-     * @type {WebGLRenderer}
-     * @private
-     */
+    this._context = getWebGLContextFromCanvas(this._canvas);
     this._renderer = new THREE.WebGLRenderer({
       canvas,
       context: this._context,
-      stencilBuffer: false
+      ...Renderer.RENDERER_OPTIONS
     });
 
-    /**
-     *
-     * @type {Scene}
-     * @private
-     */
-    this._scene = new THREE.Scene();
-
-    /**
-     *
-     * @type {OrthographicCamera}
-     * @private
-     */
-    this._camera = new THREE.OrthographicCamera(1, 1, 1, 1, 0, 10);
     this._camera.position.z = 1000;
     this._camera.position.x = 0;
     this._camera.position.y = 0;
 
-    /**
-     *
-     * @type {number}
-     * @private
-     */
-    this._index = Renderer._rendererCount++;
-
-    /**
-     *
-     * @type {Int8Array}
-     * @private
-     */
-    this._map = new Int8Array(MAP_TILES_WIDE * MAP_TILES_HIGH);
-
-    /**
-     *
-     * @type {boolean}
-     * @private
-     */
-    this._rendering = false;
-
-    /**
-     *
-     * @type {ChunkRenderer}
-     * @private
-     */
-    this._chunkRenderer = new ChunkRenderer();
+    for (let i = 0; i < 1; i += 0.1) {
+      this._tileMaterials.greenTile(i);
+    }
   }
 
   /**
    *
    * @return {string}
    */
-  listenerName() {
+  name() {
     return "renderer-" + this._index;
   }
 
   generateMap() {
     const map = this._map;
     const size = map.length;
-    const materialCount = this._chunkRenderer.materialsCount();
+    const materialCount = this._tileMaterials.size();
     for (let i = size; i >= 0; i--) {
       map[i] = Math.floor(Math.random() * materialCount);
     }
@@ -138,16 +164,24 @@ export default class Renderer {
     this._camera.bottom = 0;
     this._camera.near = -1;
     this._camera.far = 2000;
+    this._camera.updateProjectionMatrix();
 
     this._chunkRenderer.windowResized(width, height, this._scene);
   };
 
   destroy() {
-    stopListeningForResize(this.listenerName());
-    stopListeningForKeydown(this.listenerName());
+    this._rendering = false;
+
+    stopListeningForResize(this.name());
+    stopListeningForKeydown(this.name());
     this._chunkRenderer.dispose();
-    this._scene.dispose();
+    this._tileMaterials.dispose();
     this._renderer.dispose();
+
+    this._map = null;
+    this._chunkRenderer = null;
+    this._scene = null;
+    this._renderer = null;
   }
 
   keydown = key => {
@@ -155,16 +189,16 @@ export default class Renderer {
     // the rate at which events are fired might appear as hitches.
     switch (key) {
       case "w":
-        this._camera.position.y += Renderer.KEY_JUMP_SIZE;
+        this._cameraDeltaY += Renderer.KEY_JUMP_SIZE;
         break;
       case "s":
-        this._camera.position.y -= Renderer.KEY_JUMP_SIZE;
+        this._cameraDeltaY -= Renderer.KEY_JUMP_SIZE;
         break;
       case "a":
-        this._camera.position.x -= Renderer.KEY_JUMP_SIZE;
+        this._cameraDeltaX -= Renderer.KEY_JUMP_SIZE;
         break;
       case "d":
-        this._camera.position.x += Renderer.KEY_JUMP_SIZE;
+        this._cameraDeltaX += Renderer.KEY_JUMP_SIZE;
         break;
       case " ":
         this._rendering = !this._rendering;
@@ -182,13 +216,26 @@ export default class Renderer {
   };
 
   start() {
-    listenForResize(this.listenerName(), this.resize);
-    listenForKeydown(this.listenerName(), this.keydown);
-
+    listenForResize(this.name(), this.resize);
+    listenForKeydown(this.name(), this.keydown);
     this._chunkRenderer.refreshChunks(this._renderer, 0, 0, this._map);
-
     this._rendering = true;
     this.render();
+  }
+
+  _applyCameraDelta() {
+    const dX = this._cameraDeltaX;
+    const dY = this._cameraDeltaY;
+
+    if (!dX && !dY) {
+      return;
+    }
+
+    this._camera.position.x += dX;
+    this._camera.position.y += dY;
+    this._camera.updateProjectionMatrix();
+    this._cameraDeltaX = 0;
+    this._cameraDeltaY = 0;
   }
 
   render = () => {
@@ -197,11 +244,11 @@ export default class Renderer {
     }
 
     requestAnimationFrame(this.render);
-    STATS.begin();
+    stats.begin();
 
-    this._camera.updateProjectionMatrix();
+    this._applyCameraDelta();
     this._renderer.render(this._scene, this._camera);
 
-    STATS.end();
+    stats.end();
   };
 }
