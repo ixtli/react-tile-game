@@ -5,6 +5,10 @@ import ChunkRenderer from "./map/map-chunk-renderer";
 import { MAP_TILES_HIGH, MAP_TILES_WIDE } from "../config";
 import Stats from "stats-js";
 
+/**
+ * @type {{begin: function(), end: function(), showPanel: function(number):
+ *   void, dom: HTMLElement}}
+ */
 const STATS = new Stats();
 STATS.showPanel(0);
 document.body.append(STATS.dom);
@@ -31,7 +35,7 @@ export default class Renderer {
    */
   static _rendererCount = 0;
 
-  static KEY_JUMP_SIZE = 1;
+  static KEY_JUMP_SIZE = 10;
 
   constructor(canvas) {
     /**
@@ -186,7 +190,6 @@ export default class Renderer {
   }
 
   render = () => {
-
     if (!this._rendering) {
       return;
     }
