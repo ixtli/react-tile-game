@@ -12,10 +12,6 @@ function ErrorDisplay() {
 }
 
 class App extends Component {
-  /**
-   *
-   * @type {boolean}
-   */
   static RUN = canRun();
 
   componentDidMount() {

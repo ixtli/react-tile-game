@@ -31,6 +31,10 @@ export function warn() {
   }
 }
 
+/**
+ *
+ * @return {boolean}
+ */
 export function canRun() {
   if (!WEBGL) {
     console.error("WebGL not supported.");
