@@ -94,7 +94,7 @@ export default class Renderer {
      * @type {boolean}
      * @private
      */
-    this._dirty = true;
+    this._rendering = false;
 
     /**
      *
@@ -136,8 +136,6 @@ export default class Renderer {
     this._camera.far = 2000;
 
     this._chunkRenderer.windowResized(width, height, this._scene);
-
-    this._dirty = true;
   };
 
   destroy() {
@@ -149,30 +147,31 @@ export default class Renderer {
   }
 
   keydown = key => {
-    let delta = false;
     switch (key) {
       case "w":
         this._camera.position.y += Renderer.KEY_JUMP_SIZE;
-        delta = true;
         break;
       case "s":
         this._camera.position.y -= Renderer.KEY_JUMP_SIZE;
-        delta = true;
         break;
       case "a":
         this._camera.position.x -= Renderer.KEY_JUMP_SIZE;
-        delta = true;
         break;
       case "d":
         this._camera.position.x += Renderer.KEY_JUMP_SIZE;
-        delta = true;
+        break;
+      case " ":
+        this._rendering = !this._rendering;
+        if (this._rendering) {
+          this.render();
+          console.log("Rendering enabled.");
+        } else {
+          console.log("Rendering disabled.");
+        }
         break;
       default:
+        console.log(key);
         break;
-    }
-
-    if (delta) {
-      this._dirty = true;
     }
   };
 
@@ -182,22 +181,22 @@ export default class Renderer {
 
     this._chunkRenderer.refreshChunks(this._renderer, 0, 0, this._map);
 
+    this._rendering = true;
     this.render();
   }
 
   render = () => {
-    if (!this._dirty) {
-      requestAnimationFrame(this.render);
+
+    if (!this._rendering) {
       return;
     }
 
+    requestAnimationFrame(this.render);
     STATS.begin();
 
     this._camera.updateProjectionMatrix();
     this._renderer.render(this._scene, this._camera);
 
-    this._dirty = false;
     STATS.end();
-    requestAnimationFrame(this.render);
   };
 }

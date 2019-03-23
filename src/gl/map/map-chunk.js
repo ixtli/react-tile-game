@@ -10,6 +10,13 @@ import {
 export default class Chunk {
   static RENDER_TARGET_OPTIONS = { depthBuffer: false, stencilBuffer: false };
 
+  static MATERIAL_OPTIONS = {
+    blending: THREE.NoBlending,
+    depthTest: false,
+    depthWrite: false,
+    side: THREE.FrontSide
+  };
+
   constructor() {
     /**
      *
@@ -52,7 +59,8 @@ export default class Chunk {
      * @private
      */
     this._material = new THREE.MeshBasicMaterial({
-      map: this._texture.texture
+      map: this._texture.texture,
+      ...Chunk.MATERIAL_OPTIONS
     });
 
     /**
