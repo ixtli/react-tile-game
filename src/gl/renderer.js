@@ -3,6 +3,11 @@ import { listenForResize, stopListeningForResize } from "./resize";
 import { listenForKeydown, stopListeningForKeydown } from "./keydown";
 import ChunkRenderer from "./map/map-chunk-renderer";
 import { MAP_TILES_HIGH, MAP_TILES_WIDE } from "../config";
+import Stats from "stats-js";
+
+const STATS = new Stats();
+STATS.showPanel(0);
+document.body.append(STATS.dom);
 
 function isWebGL2Available() {
   try {
@@ -26,7 +31,7 @@ export default class Renderer {
    */
   static _rendererCount = 0;
 
-  static KEY_JUMP_SIZE = 25;
+  static KEY_JUMP_SIZE = 1;
 
   constructor(canvas) {
     /**
@@ -66,7 +71,7 @@ export default class Renderer {
      * @private
      */
     this._camera = new THREE.OrthographicCamera(1, 1, 1, 1, 0, 10);
-    this._camera.position.z = 1;
+    this._camera.position.z = 1000;
     this._camera.position.x = 0;
     this._camera.position.y = 0;
 
@@ -127,6 +132,8 @@ export default class Renderer {
     this._camera.right = width;
     this._camera.top = height;
     this._camera.bottom = 0;
+    this._camera.near = 0;
+    this._camera.far = 2000;
 
     this._chunkRenderer.windowResized(width, height, this._scene);
 
@@ -136,6 +143,9 @@ export default class Renderer {
   destroy() {
     stopListeningForResize(this.listenerName());
     stopListeningForKeydown(this.listenerName());
+    this._chunkRenderer.dispose();
+    this._scene.dispose();
+    this._renderer.dispose();
   }
 
   keydown = key => {
@@ -176,15 +186,18 @@ export default class Renderer {
   }
 
   render = () => {
-    requestAnimationFrame(this.render);
-
     if (!this._dirty) {
+      requestAnimationFrame(this.render);
       return;
     }
+
+    STATS.begin();
 
     this._camera.updateProjectionMatrix();
     this._renderer.render(this._scene, this._camera);
 
     this._dirty = false;
+    STATS.end();
+    requestAnimationFrame(this.render);
   };
 }

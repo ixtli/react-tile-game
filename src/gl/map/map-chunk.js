@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import {
   CHUNK_PIXEL_LENGTH,
-  CHUNK_TILE_LENGTH, MAP_TILES_WIDE,
+  CHUNK_TILE_LENGTH,
+  MAP_TILES_WIDE,
   TILE_PIXEL_LENGTH,
   TILES_PER_CHUNK
 } from "../../config";
@@ -37,10 +38,29 @@ export default class Chunk {
 
     /**
      *
-     * @type {Sprite}
+     * @type {PlaneBufferGeometry}
      * @private
      */
-    this._chunkSprite = this._generateNewSprite();
+    this._geometry = new THREE.PlaneBufferGeometry(
+      CHUNK_PIXEL_LENGTH,
+      CHUNK_PIXEL_LENGTH
+    );
+
+    /**
+     *
+     * @type {MeshBasicMaterial}
+     * @private
+     */
+    this._material = new THREE.MeshBasicMaterial({
+      map: this._texture.texture
+    });
+
+    /**
+     *
+     * @type {Mesh}
+     * @private
+     */
+    this._mesh = new THREE.Mesh(this._geometry, this._material);
 
     this._fill();
   }
@@ -97,31 +117,23 @@ export default class Chunk {
 
   /**
    *
-   * @return {Sprite}
-   * @private
-   */
-  _generateNewSprite() {
-    const tex = this._texture;
-    var ret = new THREE.Sprite();
-    ret.center.set(0, 0);
-    ret.scale.set(tex.width, tex.height, 1);
-    ret.material = new THREE.SpriteMaterial({ map: tex.texture });
-    return ret;
-  }
-
-  /**
-   *
-   * @return {Sprite}
+   * @return {Object3D}
    */
   getSprite() {
-    return this._chunkSprite;
+    return this._mesh;
   }
 
   dispose() {
     this._scene.dispose();
     this._texture.dispose();
+    this._geometry.dispose();
+    this._material.dispose();
     this._texture = null;
-    this._sprites = null;
+    this._material = null;
+    this._geometry = null;
     this._scene = null;
+
+    // Note that we do not own the tile materials, so do NOT dispose of them.
+    this._sprites = null;
   }
 }

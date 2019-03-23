@@ -10,12 +10,13 @@ import {
  *
  * @param width {number}
  * @param height {number}
- * @return {HTMLElement | OffscreenCanvas}
+ * @return {HTMLCanvasElement}
  */
 function getOffscreenCanvas(width, height) {
   if (window.hasOwnProperty("OffscreenCanvas")) {
     return new window.OffscreenCanvas(width, height);
   } else {
+    // noinspection JSValidateTypes
     return document.createElement("canvas");
   }
 }
@@ -148,11 +149,10 @@ export default class ChunkRenderer {
    */
   static generateTileMaterial(r, g, b) {
     const canvas = getOffscreenCanvas(TILE_PIXEL_LENGTH, TILE_PIXEL_LENGTH);
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", { alpha: false });
     ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
     ctx.fillRect(0, 0, TILE_PIXEL_LENGTH, TILE_PIXEL_LENGTH);
-    var map = new THREE.CanvasTexture(canvas);
-    return new THREE.SpriteMaterial({ map });
+    return new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas) });
   }
 
   static _greenTile(lightness) {
@@ -195,5 +195,10 @@ export default class ChunkRenderer {
     this._lastTop = top;
 
     console.timeEnd("refreshChunks()");
+  }
+
+  dispose() {
+    this._chunks.forEach(chunk => chunk.dispose());
+    this._materials.forEach(material => material.map.dispose());
   }
 }
