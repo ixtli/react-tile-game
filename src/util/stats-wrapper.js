@@ -1,8 +1,8 @@
 import Stats from "stats-js";
 
 /**
- * @type {{begin: function(), end: function(), showPanel: function(number):
- *   void, dom: HTMLElement}}
+ * @type {{begin: function(): void, end: function(): void, showPanel:
+ *   function(number): void, dom: HTMLElement}}
  */
 export const stats = new Stats();
 

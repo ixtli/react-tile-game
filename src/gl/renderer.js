@@ -26,7 +26,7 @@ export default class Renderer {
    * @type {Object.<String, *>}
    */
   static RENDERER_OPTIONS = {
-    stencilBuffer: false
+    stencil: false
   };
 
   /**
@@ -125,6 +125,9 @@ export default class Renderer {
       ...Renderer.RENDERER_OPTIONS
     });
 
+    this._renderer.setPixelRatio(window.devicePixelRatio);
+    // this._renderer.autoClear = true;
+
     this._camera.position.z = 1000;
     this._camera.position.x = 0;
     this._camera.position.y = 0;
@@ -218,7 +221,7 @@ export default class Renderer {
   start() {
     listenForResize(this.name(), this.resize);
     listenForKeydown(this.name(), this.keydown);
-    this._chunkRenderer.refreshChunks(this._renderer, 0, 0, this._map);
+    this._chunkRenderer.refreshChunks(0, 0, this._map, this._renderer);
     this._rendering = true;
     this.render();
   }

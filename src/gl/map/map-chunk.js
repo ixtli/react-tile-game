@@ -8,8 +8,6 @@ import {
 } from "../../config";
 
 export default class Chunk {
-  static RENDER_TARGET_OPTIONS = { depthBuffer: false, stencilBuffer: false };
-
   static MATERIAL_OPTIONS = {
     blending: THREE.NoBlending,
     depthTest: false,
@@ -17,59 +15,60 @@ export default class Chunk {
     side: THREE.FrontSide
   };
 
+  /**
+   *
+   * @type {Sprite[]}
+   * @private
+   */
+  _sprites = new Array(TILES_PER_CHUNK);
+
+  /**
+   *
+   * @type {Scene}
+   * @private
+   */
+  _scene = new THREE.Scene();
+
+  /**
+   *
+   * @type {WebGLRenderTarget}
+   * @private
+   */
+  _texture = new THREE.WebGLRenderTarget(
+    CHUNK_PIXEL_LENGTH,
+    CHUNK_PIXEL_LENGTH,
+    Chunk.RENDER_TARGET_OPTIONS
+  );
+
+  /**
+   *
+   * @type {PlaneBufferGeometry}
+   * @private
+   */
+  _geometry = new THREE.PlaneBufferGeometry(
+    CHUNK_PIXEL_LENGTH,
+    CHUNK_PIXEL_LENGTH
+  );
+
+  /**
+   *
+   * @type {MeshBasicMaterial}
+   * @private
+   */
+  _material = new THREE.MeshBasicMaterial({
+    map: this._texture.texture,
+    ...Chunk.MATERIAL_OPTIONS
+  });
+
+  /**
+   *
+   * @type {Mesh}
+   * @private
+   */
+  _mesh = new THREE.Mesh(this._geometry, this._material);
+
   constructor() {
-    /**
-     *
-     * @type {Sprite[]}
-     * @private
-     */
-    this._sprites = new Array(TILES_PER_CHUNK);
-
-    /**
-     *
-     * @type {Scene}
-     * @private
-     */
-    this._scene = new THREE.Scene();
-
-    /**
-     *
-     * @type {WebGLRenderTarget}
-     * @private
-     */
-    this._texture = new THREE.WebGLRenderTarget(
-      CHUNK_PIXEL_LENGTH,
-      CHUNK_PIXEL_LENGTH,
-      Chunk.RENDER_TARGET_OPTIONS
-    );
-
-    /**
-     *
-     * @type {PlaneBufferGeometry}
-     * @private
-     */
-    this._geometry = new THREE.PlaneBufferGeometry(
-      CHUNK_PIXEL_LENGTH,
-      CHUNK_PIXEL_LENGTH
-    );
-
-    /**
-     *
-     * @type {MeshBasicMaterial}
-     * @private
-     */
-    this._material = new THREE.MeshBasicMaterial({
-      map: this._texture.texture,
-      ...Chunk.MATERIAL_OPTIONS
-    });
-
-    /**
-     *
-     * @type {Mesh}
-     * @private
-     */
-    this._mesh = new THREE.Mesh(this._geometry, this._material);
-
+    this._texture.texture.generateMipmaps = false;
     this._fill();
   }
 
@@ -132,13 +131,13 @@ export default class Chunk {
   }
 
   dispose() {
-    this._scene.dispose();
     this._texture.dispose();
     this._geometry.dispose();
     this._material.dispose();
     this._texture = null;
     this._material = null;
     this._geometry = null;
+    this._mesh = null;
     this._scene = null;
 
     // Note that we do not own the tile materials, so do NOT dispose of them.

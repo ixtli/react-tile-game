@@ -3,70 +3,71 @@ import * as THREE from "three";
 import { CHUNK_PIXEL_LENGTH, CHUNK_TILE_LENGTH } from "../../config";
 
 export default class ChunkRenderer {
+  /**
+   *
+   * @type {OrthographicCamera}
+   * @private
+   */
+  _camera = new THREE.OrthographicCamera(
+    0,
+    CHUNK_PIXEL_LENGTH,
+    CHUNK_PIXEL_LENGTH,
+    0,
+    -1,
+    2000
+  );
+
+  /**
+   *
+   * @type {Chunk[]}
+   * @private
+   */
+  _chunks = [];
+
+  /**
+   *
+   * @type {number}
+   * @private
+   */
+  _chunksWide = 0;
+
+  /**
+   *
+   * @type {number}
+   * @private
+   */
+  _chunksHigh = 0;
+
+  /**
+   *
+   * @type {number}
+   * @private
+   */
+  _lastLeft = -1;
+
+  /**
+   *
+   * @type {number}
+   * @private
+   */
+  _lastTop = -1;
+
+  /**
+   *
+   * @type {SpriteMaterial[]}
+   * @private
+   */
+  _materialArray = [];
 
   /**
    *
    * @param materials {TileMaterialManager}
    */
   constructor(materials) {
-    /**
-     *
-     * @type {OrthographicCamera}
-     * @private
-     */
-    this._camera = new THREE.OrthographicCamera(
-      0,
-      CHUNK_PIXEL_LENGTH,
-      CHUNK_PIXEL_LENGTH,
-      0,
-      0,
-      10
-    );
     this._camera.position.z = 1;
     this._camera.position.x = 0;
     this._camera.position.y = 0;
     this._camera.updateProjectionMatrix();
-
-    /**
-     *
-     * @type {Chunk[]}
-     * @private
-     */
-    this._chunks = [];
-
-    /**
-     *
-     * @type {number}
-     * @private
-     */
-    this._chunksWide = 0;
-
-    /**
-     *
-     * @type {number}
-     * @private
-     */
-    this._chunksHigh = 0;
-
-    /**
-     *
-     * @type {number}
-     * @private
-     */
-    this._lastLeft = -1;
-
-    /**
-     *
-     * @type {number}
-     * @private
-     */
-    this._lastTop = -1;
-
-    /**
-     *
-     * @type {SpriteMaterial[]}
-     * @private
-     */
     this._materialArray = materials.getMaterialArray();
   }
 
@@ -140,12 +141,12 @@ export default class ChunkRenderer {
 
   /**
    *
-   * @param renderer {WebGLRenderer}
    * @param left {number} the X index of the start chunk
    * @param top {number} the Y index of the start chunk
-   * @param map
+   * @param map {Int16Array}
+   * @param renderer {WebGLRenderer}
    */
-  refreshChunks(renderer, left, top, map) {
+  refreshChunks(left, top, map, renderer) {
     console.time("refreshChunks()");
 
     const chunksWide = this._chunksWide;
@@ -162,10 +163,10 @@ export default class ChunkRenderer {
       }
     }
 
-    renderer.setRenderTarget(null);
-
     this._lastLeft = left;
     this._lastTop = top;
+
+    renderer.setRenderTarget(null);
 
     console.timeEnd("refreshChunks()");
   }
