@@ -35,7 +35,7 @@ export default class Renderer {
    */
   static _rendererCount = 0;
 
-  static KEY_JUMP_SIZE = 10;
+  static KEY_JUMP_SIZE = 32;
 
   constructor(canvas) {
     /**
@@ -136,7 +136,7 @@ export default class Renderer {
     this._camera.right = width;
     this._camera.top = height;
     this._camera.bottom = 0;
-    this._camera.near = 0;
+    this._camera.near = -1;
     this._camera.far = 2000;
 
     this._chunkRenderer.windowResized(width, height, this._scene);
@@ -151,6 +151,8 @@ export default class Renderer {
   }
 
   keydown = key => {
+    // @TODO: The camera position should only change on frame render, otherwise
+    // the rate at which events are fired might appear as hitches.
     switch (key) {
       case "w":
         this._camera.position.y += Renderer.KEY_JUMP_SIZE;

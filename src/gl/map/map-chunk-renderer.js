@@ -94,13 +94,30 @@ export default class ChunkRenderer {
 
   /**
    *
+   * @param chunksWide {number}
+   * @param begin {number}
+   * @private
+   */
+  _reorientChunks(chunksWide, begin) {
+    const chunks = this._chunks;
+    const chunkCount = chunks.length;
+    for (let i = begin; i < chunkCount; i++) {
+      const mesh = chunks[i].getMesh();
+      const x = i % chunksWide;
+      const y = Math.floor(i / chunksWide);
+      mesh.position.set(x * CHUNK_PIXEL_LENGTH, y * CHUNK_PIXEL_LENGTH, 0);
+    }
+  }
+
+  /**
+   *
    * @param width {number}
    * @param height {number}
    * @param parentScene {Scene}
    */
   windowResized(width, height, parentScene) {
-    const chunksWide = Math.ceil(width / CHUNK_PIXEL_LENGTH) + 2;
-    const chunksHigh = Math.ceil(height / CHUNK_PIXEL_LENGTH) + 2;
+    const chunksWide = Math.ceil(width / CHUNK_PIXEL_LENGTH) + 4;
+    const chunksHigh = Math.ceil(height / CHUNK_PIXEL_LENGTH) + 4;
     const oldChunkCount = this._chunks.length;
     const newChunkCount = chunksWide * chunksHigh;
 
@@ -116,11 +133,16 @@ export default class ChunkRenderer {
     console.time("windowResized()");
 
     if (oldChunkCount > newChunkCount) {
+      // trash old chunks
       for (let i = newChunkCount; i < oldChunkCount; i++) {
-        parentScene.remove(this._chunks[i].getSprite());
+        parentScene.remove(this._chunks[i].getMesh());
         this._chunks[i].dispose();
       }
+
       this._chunks.splice(newChunkCount, difference);
+      this._reorientChunks(chunksWide, 0);
+
+      // reorient new chunks
       console.timeEnd("windowResized()");
       console.log("Destroyed", difference, "chunks (", newChunkCount, ")");
       return;
@@ -129,8 +151,10 @@ export default class ChunkRenderer {
     for (let i = oldChunkCount; i < newChunkCount; i++) {
       const newChunk = new Chunk();
       this._chunks.push(newChunk);
-      parentScene.add(newChunk.getSprite());
+      parentScene.add(newChunk.getMesh());
     }
+
+    this._reorientChunks(chunksWide, oldChunkCount);
 
     console.timeEnd("windowResized()");
     console.log("Created", difference, "chunks (", newChunkCount, ")");
@@ -181,12 +205,10 @@ export default class ChunkRenderer {
     let idx = 0;
     for (let y = 0; y < chunksHigh; y++) {
       for (let x = 0; x < chunksWide; x++) {
-        const sprite = this._chunks[idx++]
+        this._chunks[idx++]
           .update(x * CHUNK_TILE_LENGTH, y * CHUNK_TILE_LENGTH, map, materials)
           .render(renderer, camera)
-          .getSprite();
-
-        sprite.position.set(x * CHUNK_PIXEL_LENGTH, y * CHUNK_PIXEL_LENGTH, 1);
+          .getMesh();
       }
     }
 

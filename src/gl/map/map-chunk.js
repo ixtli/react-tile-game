@@ -125,9 +125,9 @@ export default class Chunk {
 
   /**
    *
-   * @return {Object3D}
+   * @return {Mesh}
    */
-  getSprite() {
+  getMesh() {
     return this._mesh;
   }
 
