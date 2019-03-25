@@ -1,6 +1,6 @@
 import Chunk from "./map-chunk";
 import * as THREE from "three";
-import { CHUNK_PIXEL_LENGTH, CHUNK_TILE_LENGTH } from "../../config";
+import { CHUNK_PIXEL_LENGTH, PRE_RENDER_CHUNKS } from "../../config";
 
 export default class ChunkRenderer {
   /**
@@ -57,7 +57,7 @@ export default class ChunkRenderer {
    * @type {SpriteMaterial[]}
    * @private
    */
-  _materialArray = [];
+  _materialArray = null;
 
   /**
    *
@@ -81,10 +81,9 @@ export default class ChunkRenderer {
     const chunks = this._chunks;
     const chunkCount = chunks.length;
     for (let i = begin; i < chunkCount; i++) {
-      const mesh = chunks[i].getMesh();
       const x = i % chunksWide;
       const y = Math.floor(i / chunksWide);
-      mesh.position.set(x * CHUNK_PIXEL_LENGTH, y * CHUNK_PIXEL_LENGTH, 0);
+      chunks[i].setChunkLocation(x, y);
     }
   }
 
@@ -95,8 +94,10 @@ export default class ChunkRenderer {
    * @param parentScene {Scene}
    */
   windowResized(width, height, parentScene) {
-    const chunksWide = Math.ceil(width / CHUNK_PIXEL_LENGTH) + 4;
-    const chunksHigh = Math.ceil(height / CHUNK_PIXEL_LENGTH) + 4;
+    const chunksWide =
+      Math.ceil(width / CHUNK_PIXEL_LENGTH) + PRE_RENDER_CHUNKS * 2;
+    const chunksHigh =
+      Math.ceil(height / CHUNK_PIXEL_LENGTH) + PRE_RENDER_CHUNKS * 2;
     const oldChunkCount = this._chunks.length;
     const newChunkCount = chunksWide * chunksHigh;
 
@@ -109,7 +110,7 @@ export default class ChunkRenderer {
 
     const difference = Math.abs(oldChunkCount - newChunkCount);
 
-    console.time("windowResized()");
+    console.time(`windowResized()`);
 
     if (oldChunkCount > newChunkCount) {
       // trash old chunks
@@ -118,7 +119,7 @@ export default class ChunkRenderer {
         this._chunks[i].dispose();
       }
 
-      this._chunks.splice(newChunkCount, difference);
+      this._chunks.splice(newChunkCount, Math.abs(difference));
       this._reorientChunks(chunksWide, 0);
 
       // reorient new chunks
@@ -147,18 +148,18 @@ export default class ChunkRenderer {
    * @param renderer {WebGLRenderer}
    */
   refreshChunks(left, top, map, renderer) {
-    console.time("refreshChunks()");
+    console.time(`refreshChunks(${left}, ${top})`);
 
-    const chunksWide = this._chunksWide;
-    const chunksHigh = this._chunksHigh;
-    const textures = this._materialArray;
+    const chunksWide = this.chunksWide();
+    const chunksHigh = this.chunksHigh();
+    const materials = this._materialArray;
     const camera = this._camera;
 
     let idx = 0;
-    for (let y = 0; y < chunksHigh; y++) {
-      for (let x = 0; x < chunksWide; x++) {
+    for (let y = top; y < top + chunksHigh; y++) {
+      for (let x = left; x < left + chunksWide; x++) {
         this._chunks[idx++]
-          .update(x * CHUNK_TILE_LENGTH, y * CHUNK_TILE_LENGTH, map, textures)
+          .update(x, y, map, materials)
           .render(renderer, camera);
       }
     }
@@ -168,10 +169,18 @@ export default class ChunkRenderer {
 
     renderer.setRenderTarget(null);
 
-    console.timeEnd("refreshChunks()");
+    console.timeEnd(`refreshChunks(${left}, ${top})`);
   }
 
   dispose() {
     this._chunks.forEach(chunk => chunk.dispose());
+  }
+
+  chunksWide() {
+    return this._chunksWide;
+  }
+
+  chunksHigh() {
+    return this._chunksHigh;
   }
 }

@@ -8,11 +8,23 @@ import {
 } from "../../config";
 
 export default class Chunk {
+  static CHUNK_DEBUG_SPACING = 0;
+
+  static HALF_CHUNK_PIXEL_LENGTH = Math.floor(CHUNK_PIXEL_LENGTH / 2);
+
   static MATERIAL_OPTIONS = {
     blending: THREE.NoBlending,
     depthTest: false,
     depthWrite: false,
     side: THREE.FrontSide
+  };
+
+  static RENDER_TARGET_OPTIONS = {
+    magFilter: THREE.NearestFilter,
+    minFilter: THREE.NearestFilter,
+    format: THREE.RGBFormat,
+    depthBuffer: false,
+    stencilBuffer: false
   };
 
   /**
@@ -89,21 +101,23 @@ export default class Chunk {
 
   /**
    *
-   * @param startX {number}
-   * @param startY {number}
-   * @param map {Int8Array}
+   * @param startChunkX {number}
+   * @param startChunkY {number}
+   * @param map {Int16Array}
    * @param materials {SpriteMaterial[]}
    * @return {Chunk}
    */
-  update(startX, startY, map, materials) {
+  update(startChunkX, startChunkY, map, materials) {
+    const startX = startChunkX * CHUNK_TILE_LENGTH;
+    const endChunkY = startChunkY + CHUNK_TILE_LENGTH;
     const sprites = this._sprites;
-    const endY = startY + CHUNK_TILE_LENGTH;
-    let mapIdx = 0;
+
+    let start;
     let spriteIdx = 0;
-    for (let y = startY; y < endY; y++) {
-      mapIdx = startX + y * MAP_TILES_WIDE;
+    for (let y = startChunkY; y < endChunkY; y++) {
+      start = y * MAP_TILES_WIDE + startX;
       for (let i = 0; i < CHUNK_TILE_LENGTH; i++) {
-        sprites[spriteIdx++].material = materials[map[mapIdx++]];
+        sprites[spriteIdx++].material = materials[map[start++]];
       }
     }
 
@@ -128,6 +142,20 @@ export default class Chunk {
    */
   getMesh() {
     return this._mesh;
+  }
+
+  /**
+   *
+   * @param x {number}
+   * @param y {number}
+   */
+  setChunkLocation(x, y) {
+    this._mesh.position.x =
+      x * (CHUNK_PIXEL_LENGTH + Chunk.CHUNK_DEBUG_SPACING) +
+      Chunk.HALF_CHUNK_PIXEL_LENGTH;
+    this._mesh.position.y =
+      y * (CHUNK_PIXEL_LENGTH + Chunk.CHUNK_DEBUG_SPACING) +
+      Chunk.HALF_CHUNK_PIXEL_LENGTH;
   }
 
   dispose() {

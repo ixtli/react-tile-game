@@ -2,7 +2,13 @@ import * as THREE from "three";
 import { listenForResize, stopListeningForResize } from "./resize";
 import { listenForKeydown, stopListeningForKeydown } from "./keydown";
 import ChunkRenderer from "./map/map-chunk-renderer";
-import { MAP_TILES_HIGH, MAP_TILES_WIDE } from "../config";
+import {
+  CHUNK_PIXEL_LENGTH,
+  MAP_PIXELS_HIGH,
+  MAP_PIXELS_WIDE,
+  MAP_TILES_HIGH,
+  MAP_TILES_WIDE
+} from "../config";
 import { stats } from "../util/stats-wrapper";
 import { getWebGLContextFromCanvas } from "../util/compatability";
 import { TileMaterialManager } from "./tile-materials-manager";
@@ -114,6 +120,16 @@ export default class Renderer {
 
   /**
    *
+   * @type {{x: number, y: number}}
+   * @private
+   */
+  _cameraWorldPixel = {
+    x: Math.floor(MAP_PIXELS_WIDE / 2),
+    y: Math.floor(MAP_PIXELS_HIGH / 2)
+  };
+
+  /**
+   *
    * @param canvas {HTMLCanvasElement}
    */
   constructor(canvas) {
@@ -126,11 +142,11 @@ export default class Renderer {
     });
 
     this._renderer.setPixelRatio(window.devicePixelRatio);
+
+    // @TODO: Is this faster?
     // this._renderer.autoClear = true;
 
-    this._camera.position.z = 1000;
-    this._camera.position.x = 0;
-    this._camera.position.y = 0;
+    this._camera.position.set(0, 0, 100);
 
     for (let i = 0; i < 1; i += 0.1) {
       this._tileMaterials.greenTile(i);
@@ -150,7 +166,8 @@ export default class Renderer {
     const size = map.length;
     const materialCount = this._tileMaterials.size();
     for (let i = size; i >= 0; i--) {
-      map[i] = Math.floor(Math.random() * materialCount);
+      //map[i] = Math.floor(Math.random() * materialCount);
+      map[i] = i % materialCount;
     }
   }
 
@@ -188,8 +205,6 @@ export default class Renderer {
   }
 
   keydown = key => {
-    // @TODO: The camera position should only change on frame render, otherwise
-    // the rate at which events are fired might appear as hitches.
     switch (key) {
       case "w":
         this._cameraDeltaY += Renderer.KEY_JUMP_SIZE;
@@ -218,10 +233,36 @@ export default class Renderer {
     }
   };
 
+  _centerAroundCamera() {
+    const { x, y } = this._cameraWorldPixel;
+
+    // What chunk in the map is (x,y) in?
+    const chunkX = Math.floor(x / CHUNK_PIXEL_LENGTH);
+    const chunkY = Math.floor(y / CHUNK_PIXEL_LENGTH);
+
+    const sceneChunksWide = this._chunkRenderer.chunksWide();
+    const sceneChunksHigh = this._chunkRenderer.chunksHigh();
+    const scenePixelsWide = sceneChunksWide * CHUNK_PIXEL_LENGTH;
+    const scenePixelsHigh = sceneChunksHigh * CHUNK_PIXEL_LENGTH;
+
+    // This represents the top left of the view into the map
+    const left = Math.max(0, chunkX - Math.floor(sceneChunksWide / 2));
+    const top = Math.max(0, chunkY - Math.floor(sceneChunksHigh / 2));
+
+    this._camera.position.x =
+      Math.floor(scenePixelsWide / 2) - Math.floor(this._camera.right / 2);
+    this._camera.position.y =
+      Math.floor(scenePixelsHigh / 2) - Math.floor(this._camera.top / 2);
+
+    this._camera.updateProjectionMatrix();
+
+    this._chunkRenderer.refreshChunks(left, top, this._map, this._renderer);
+  }
+
   start() {
     listenForResize(this.name(), this.resize);
     listenForKeydown(this.name(), this.keydown);
-    this._chunkRenderer.refreshChunks(0, 0, this._map, this._renderer);
+    this._centerAroundCamera();
     this._rendering = true;
     this.render();
   }
@@ -247,6 +288,7 @@ export default class Renderer {
     }
 
     requestAnimationFrame(this.render);
+
     stats.begin();
 
     this._applyCameraDelta();
