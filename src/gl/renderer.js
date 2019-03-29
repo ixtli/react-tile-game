@@ -4,6 +4,7 @@ import { listenForKeydown, stopListeningForKeydown } from "./keydown";
 import ChunkRenderer from "./map/map-chunk-renderer";
 import {
   CHUNK_PIXEL_LENGTH,
+  CHUNK_TILE_LENGTH,
   MAP_PIXELS_HIGH,
   MAP_PIXELS_WIDE,
   MAP_TILES_HIGH,
@@ -130,6 +131,13 @@ export default class Renderer {
 
   /**
    *
+   * @type {{x: number, y: number}}
+   * @private
+   */
+  _sceneMiddle = { x: 0, y: 0 };
+
+  /**
+   *
    * @param canvas {HTMLCanvasElement}
    */
   constructor(canvas) {
@@ -187,6 +195,12 @@ export default class Renderer {
     this._camera.updateProjectionMatrix();
 
     this._chunkRenderer.windowResized(width, height, this._scene);
+
+    const sceneDimensions = this._chunkRenderer.sceneDimensions();
+    this._sceneMiddle.x =
+      Math.floor(sceneDimensions.width / 2) - Math.floor(width / 2);
+    this._sceneMiddle.y =
+      Math.floor(sceneDimensions.height / 2) - Math.floor(height / 2);
   };
 
   destroy() {
@@ -234,6 +248,10 @@ export default class Renderer {
   };
 
   _centerAroundCamera() {
+    this._camera.position.x = this._sceneMiddle.x;
+    this._camera.position.y = this._sceneMiddle.y;
+    this._camera.updateProjectionMatrix();
+
     const { x, y } = this._cameraWorldPixel;
 
     // What chunk in the map is (x,y) in?
@@ -242,20 +260,10 @@ export default class Renderer {
 
     const sceneChunksWide = this._chunkRenderer.chunksWide();
     const sceneChunksHigh = this._chunkRenderer.chunksHigh();
-    const scenePixelsWide = sceneChunksWide * CHUNK_PIXEL_LENGTH;
-    const scenePixelsHigh = sceneChunksHigh * CHUNK_PIXEL_LENGTH;
 
     // This represents the top left of the view into the map
     const left = Math.max(0, chunkX - Math.floor(sceneChunksWide / 2));
     const top = Math.max(0, chunkY - Math.floor(sceneChunksHigh / 2));
-
-    this._camera.position.x =
-      Math.floor(scenePixelsWide / 2) - Math.floor(this._camera.right / 2);
-    this._camera.position.y =
-      Math.floor(scenePixelsHigh / 2) - Math.floor(this._camera.top / 2);
-
-    this._camera.updateProjectionMatrix();
-
     this._chunkRenderer.refreshChunks(left, top, this._map, this._renderer);
   }
 
@@ -277,9 +285,32 @@ export default class Renderer {
 
     this._camera.position.x += dX;
     this._camera.position.y += dY;
-    this._camera.updateProjectionMatrix();
+
+    this._cameraWorldPixel.x += Math.floor(dX);
+    // This really is absurd:
+    // noinspection JSSuspiciousNameCombination
+    this._cameraWorldPixel.y += Math.floor(dY);
+
     this._cameraDeltaX = 0;
     this._cameraDeltaY = 0;
+
+    const scenePixelsHigh =
+      this._chunkRenderer.chunksHigh() * CHUNK_PIXEL_LENGTH;
+    const middle =
+      Math.floor(scenePixelsHigh / 2) - Math.floor(this._camera.top / 2);
+
+    if (this._camera.position.y >= middle + CHUNK_PIXEL_LENGTH) {
+      this._chunkRenderer.panUp(this._map, this._renderer);
+      this.repositionCamera();
+    }
+  }
+
+  repositionCamera() {
+    const { top, left } = this._chunkRenderer.topLeftChunk();
+    const x = (this._cameraWorldPixel.x % CHUNK_TILE_LENGTH) - left;
+    const y = (this._cameraWorldPixel.y % CHUNK_TILE_LENGTH) - top;
+    this._camera.position.x = x;
+    this._camera.position.y = y;
   }
 
   render = () => {

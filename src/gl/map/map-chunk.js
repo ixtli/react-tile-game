@@ -89,7 +89,7 @@ export default class Chunk {
     let idx = 0;
     for (let y = 0; y < CHUNK_TILE_LENGTH; y++) {
       for (let x = 0; x < CHUNK_TILE_LENGTH; x++) {
-        var sprite = new THREE.Sprite();
+        const sprite = new THREE.Sprite();
         sprite.center.set(0, 0);
         sprite.scale.set(TILE_PIXEL_LENGTH, TILE_PIXEL_LENGTH, 1);
         sprite.position.set(x * TILE_PIXEL_LENGTH, y * TILE_PIXEL_LENGTH, 1);
@@ -148,6 +148,7 @@ export default class Chunk {
    *
    * @param x {number}
    * @param y {number}
+   * @returns {Chunk}
    */
   setChunkLocation(x, y) {
     this._mesh.position.x =
@@ -156,6 +157,7 @@ export default class Chunk {
     this._mesh.position.y =
       y * (CHUNK_PIXEL_LENGTH + Chunk.CHUNK_DEBUG_SPACING) +
       Chunk.HALF_CHUNK_PIXEL_LENGTH;
+    return this;
   }
 
   dispose() {

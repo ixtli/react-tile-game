@@ -27,7 +27,7 @@ export class TileMaterialManager {
    * @private
    */
   newCanvasTexture(canvas) {
-    var map = new THREE.CanvasTexture(
+    const map = new THREE.CanvasTexture(
       canvas,
       THREE.UVMapping,
       THREE.ClampToEdgeWrapping,
@@ -41,7 +41,7 @@ export class TileMaterialManager {
 
     map.generateMipmaps = false;
 
-    var material = new THREE.SpriteMaterial({ map });
+    const material = new THREE.SpriteMaterial({ map });
 
     this._material[this._currentArrayPosition++] = material;
     this._materialSet.add(material);

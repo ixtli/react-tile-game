@@ -6,7 +6,7 @@ export const MAP_CHUNKS_WIDE = 32;
 export const MAP_CHUNKS_HIGH = 32;
 
 // Performance
-export const CHUNK_TILE_LENGTH = 16;
+export const CHUNK_TILE_LENGTH = 32;
 export const PRE_RENDER_CHUNKS = 2;
 
 // Computed

@@ -40,17 +40,10 @@ export default class ChunkRenderer {
 
   /**
    *
-   * @type {number}
+   * @type {{top: number, left: number}}
    * @private
    */
-  _lastLeft = -1;
-
-  /**
-   *
-   * @type {number}
-   * @private
-   */
-  _lastTop = -1;
+  _topLeftChunkCoordinate = {top: -1, left: -1};
 
   /**
    *
@@ -58,6 +51,13 @@ export default class ChunkRenderer {
    * @private
    */
   _materialArray = null;
+
+  /**
+   *
+   * @type {{width: number, height: number}}
+   * @private
+   */
+  _sceneDimensions = { width: 0, height: 0 };
 
   /**
    *
@@ -103,6 +103,8 @@ export default class ChunkRenderer {
 
     this._chunksHigh = chunksHigh;
     this._chunksWide = chunksWide;
+    this._sceneDimensions.width = chunksHigh * CHUNK_PIXEL_LENGTH;
+    this._sceneDimensions.height = chunksWide * CHUNK_PIXEL_LENGTH;
 
     if (oldChunkCount === newChunkCount) {
       return;
@@ -164,12 +166,42 @@ export default class ChunkRenderer {
       }
     }
 
-    this._lastLeft = left;
-    this._lastTop = top;
+    this._topLeftChunkCoordinate.left = left;
+    this._topLeftChunkCoordinate.top = top;
 
     renderer.setRenderTarget(null);
 
     console.timeEnd(`refreshChunks(${left}, ${top})`);
+  }
+
+  panUp(map, renderer) {
+    const chunksWide = this.chunksWide();
+    const chunksHigh = this.chunksHigh();
+    const materials = this._materialArray;
+    const camera = this._camera;
+    const newTop = this._topLeftChunkCoordinate.top - 1;
+    const left = this._topLeftChunkCoordinate.left;
+
+    // select the last row
+    const start = chunksWide * (chunksHigh - 1);
+    const temp = this._chunks.splice(start, chunksWide);
+
+    // recycle it into the beginning of the chunk array
+    console.time("panUp()");
+    for (let x = chunksWide - 1; x >= 0; x--) {
+      const updated = temp[x]
+        .update(left + x, newTop, map, materials)
+        .render(renderer, camera)
+        .setChunkLocation(x, 0);
+      this._chunks.unshift(updated);
+    }
+
+    renderer.setRenderTarget(null);
+
+    this._topLeftChunkCoordinate.top = newTop;
+
+    this._reorientChunks(chunksWide, chunksWide);
+    console.timeEnd("panUp()");
   }
 
   dispose() {
@@ -182,5 +214,17 @@ export default class ChunkRenderer {
 
   chunksHigh() {
     return this._chunksHigh;
+  }
+
+  sceneDimensions() {
+    return this._sceneDimensions;
+  }
+
+  /**
+   *
+   * @return {{top: number, left: number}}
+   */
+  topLeftChunk() {
+    return this._topLeftChunkCoordinate;
   }
 }
