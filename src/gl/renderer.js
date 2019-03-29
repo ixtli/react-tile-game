@@ -4,11 +4,10 @@ import { listenForKeydown, stopListeningForKeydown } from "./keydown";
 import ChunkRenderer from "./map/map-chunk-renderer";
 import {
   CHUNK_PIXEL_LENGTH,
-  CHUNK_TILE_LENGTH,
   MAP_PIXELS_HIGH,
   MAP_PIXELS_WIDE,
   MAP_TILES_HIGH,
-  MAP_TILES_WIDE
+  MAP_TILES_WIDE, TILE_PIXEL_LENGTH
 } from "../config";
 import { stats } from "../util/stats-wrapper";
 import { getWebGLContextFromCanvas } from "../util/compatability";
@@ -156,8 +155,9 @@ export default class Renderer {
 
     this._camera.position.set(0, 0, 100);
 
-    for (let i = 0; i < 1; i += 0.1) {
-      this._tileMaterials.greenTile(i);
+    const count = 9;
+    for (let i = 0; i < count; i += 1) {
+      this._tileMaterials.greenTile(i / count);
     }
   }
 
@@ -285,14 +285,12 @@ export default class Renderer {
 
     this._camera.position.x += dX;
     this._camera.position.y += dY;
-
+    this._cameraDeltaX = 0;
+    this._cameraDeltaY = 0;
     this._cameraWorldPixel.x += Math.floor(dX);
     // This really is absurd:
     // noinspection JSSuspiciousNameCombination
     this._cameraWorldPixel.y += Math.floor(dY);
-
-    this._cameraDeltaX = 0;
-    this._cameraDeltaY = 0;
 
     const scenePixelsHigh =
       this._chunkRenderer.chunksHigh() * CHUNK_PIXEL_LENGTH;
@@ -301,16 +299,8 @@ export default class Renderer {
 
     if (this._camera.position.y >= middle + CHUNK_PIXEL_LENGTH) {
       this._chunkRenderer.panUp(this._map, this._renderer);
-      this.repositionCamera();
+      this._camera.position.y -= CHUNK_PIXEL_LENGTH - TILE_PIXEL_LENGTH;
     }
-  }
-
-  repositionCamera() {
-    const { top, left } = this._chunkRenderer.topLeftChunk();
-    const x = (this._cameraWorldPixel.x % CHUNK_TILE_LENGTH) - left;
-    const y = (this._cameraWorldPixel.y % CHUNK_TILE_LENGTH) - top;
-    this._camera.position.x = x;
-    this._camera.position.y = y;
   }
 
   render = () => {

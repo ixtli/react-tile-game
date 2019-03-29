@@ -197,10 +197,9 @@ export default class ChunkRenderer {
     }
 
     renderer.setRenderTarget(null);
-
     this._topLeftChunkCoordinate.top = newTop;
-
     this._reorientChunks(chunksWide, chunksWide);
+
     console.timeEnd("panUp()");
   }
 
@@ -218,13 +217,5 @@ export default class ChunkRenderer {
 
   sceneDimensions() {
     return this._sceneDimensions;
-  }
-
-  /**
-   *
-   * @return {{top: number, left: number}}
-   */
-  topLeftChunk() {
-    return this._topLeftChunkCoordinate;
   }
 }
