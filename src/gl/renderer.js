@@ -4,10 +4,12 @@ import { listenForKeydown, stopListeningForKeydown } from "./keydown";
 import ChunkRenderer from "./map/map-chunk-renderer";
 import {
   CHUNK_PIXEL_LENGTH,
+  CHUNK_TILE_LENGTH,
   MAP_PIXELS_HIGH,
   MAP_PIXELS_WIDE,
   MAP_TILES_HIGH,
-  MAP_TILES_WIDE, TILE_PIXEL_LENGTH
+  MAP_TILES_WIDE,
+  TILE_PIXEL_LENGTH
 } from "../config";
 import { stats } from "../util/stats-wrapper";
 import { getWebGLContextFromCanvas } from "../util/compatability";
@@ -175,7 +177,20 @@ export default class Renderer {
     const materialCount = this._tileMaterials.size();
     for (let i = size; i >= 0; i--) {
       //map[i] = Math.floor(Math.random() * materialCount);
-      map[i] = i % materialCount;
+      //map[i] = i % materialCount;
+
+      const x = i % MAP_TILES_WIDE;
+      const y = Math.floor(i / MAP_TILES_WIDE);
+      const chunkY = y % CHUNK_TILE_LENGTH;
+      const chunkX = x % CHUNK_TILE_LENGTH;
+
+      if (chunkY === 0 || chunkY === CHUNK_TILE_LENGTH - 1) {
+        map[i] = 0;
+      } else if (chunkX === 0 || chunkX === CHUNK_TILE_LENGTH - 1) {
+        map[i] = 4;
+      } else {
+        map[i] = 8;
+      }
     }
   }
 
@@ -300,6 +315,11 @@ export default class Renderer {
     if (this._camera.position.y >= middle + CHUNK_PIXEL_LENGTH) {
       this._chunkRenderer.panUp(this._map, this._renderer);
       this._camera.position.y -= CHUNK_PIXEL_LENGTH - TILE_PIXEL_LENGTH;
+    }
+
+    if (this._camera.position.x >= middle + CHUNK_PIXEL_LENGTH) {
+      this._chunkRenderer.panRight(this._map, this._renderer);
+      this._camera.position.x -= CHUNK_PIXEL_LENGTH;
     }
   }
 

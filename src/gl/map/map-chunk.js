@@ -8,7 +8,7 @@ import {
 } from "../../config";
 
 export default class Chunk {
-  static CHUNK_DEBUG_SPACING = 0;
+  static CHUNK_DEBUG_SPACING = 5;
 
   static HALF_CHUNK_PIXEL_LENGTH = Math.floor(CHUNK_PIXEL_LENGTH / 2);
 
@@ -108,16 +108,16 @@ export default class Chunk {
    * @return {Chunk}
    */
   update(startChunkX, startChunkY, map, materials) {
+    const startY = startChunkY * (MAP_TILES_WIDE * CHUNK_TILE_LENGTH);
     const startX = startChunkX * CHUNK_TILE_LENGTH;
-    const endChunkY = startChunkY + CHUNK_TILE_LENGTH;
     const sprites = this._sprites;
 
-    let start;
-    let spriteIdx = 0;
-    for (let y = startChunkY; y < endChunkY; y++) {
-      start = y * MAP_TILES_WIDE + startX;
-      for (let i = 0; i < CHUNK_TILE_LENGTH; i++) {
-        sprites[spriteIdx++].material = materials[map[start++]];
+    let mapIdx;
+    let spritesIdx = 0;
+    for (let y = 0; y < CHUNK_TILE_LENGTH; y++) {
+      mapIdx = startY + y * MAP_TILES_WIDE + startX;
+      for (let x = 0; x < CHUNK_TILE_LENGTH; x++) {
+        sprites[spritesIdx++].material = materials[map[mapIdx++]];
       }
     }
 
