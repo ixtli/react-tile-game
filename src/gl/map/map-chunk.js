@@ -79,6 +79,13 @@ export default class Chunk {
    */
   _mesh = new THREE.Mesh(this._geometry, this._material);
 
+  /**
+   *
+   * @type {{x: number, y: number}}
+   * @private
+   */
+  _currentSceneLocation = { x: 0, y: 0 };
+
   constructor() {
     this._texture.texture.generateMipmaps = false;
     this._fill();
@@ -150,13 +157,21 @@ export default class Chunk {
    * @param y {number}
    * @returns {Chunk}
    */
-  setChunkLocation(x, y) {
-    this._mesh.position.x =
-      x * (CHUNK_PIXEL_LENGTH + Chunk.CHUNK_DEBUG_SPACING) +
-      Chunk.HALF_CHUNK_PIXEL_LENGTH;
-    this._mesh.position.y =
-      y * (CHUNK_PIXEL_LENGTH + Chunk.CHUNK_DEBUG_SPACING) +
-      Chunk.HALF_CHUNK_PIXEL_LENGTH;
+  setSceneLocation(x, y) {
+    if (this._currentSceneLocation.x !== x) {
+      this._currentSceneLocation.x = x;
+      this._mesh.position.x =
+        x * (CHUNK_PIXEL_LENGTH + Chunk.CHUNK_DEBUG_SPACING) +
+        Chunk.HALF_CHUNK_PIXEL_LENGTH;
+    }
+
+    if (this._currentSceneLocation.y !== y) {
+      this._currentSceneLocation.y = y;
+      this._mesh.position.y =
+        y * (CHUNK_PIXEL_LENGTH + Chunk.CHUNK_DEBUG_SPACING) +
+        Chunk.HALF_CHUNK_PIXEL_LENGTH;
+    }
+
     return this;
   }
 

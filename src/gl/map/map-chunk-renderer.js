@@ -83,7 +83,7 @@ export default class ChunkRenderer {
     for (let i = begin; i < chunkCount; i++) {
       const x = i % chunksWide;
       const y = Math.floor(i / chunksWide);
-      chunks[i].setChunkLocation(x, y);
+      chunks[i].setSceneLocation(x, y);
     }
   }
 
@@ -150,10 +150,12 @@ export default class ChunkRenderer {
    * @param renderer {WebGLRenderer}
    */
   refreshChunks(left, top, map, renderer) {
-    console.time(`refreshChunks(${left}, ${top})`);
-
     const chunksWide = this.chunksWide();
     const chunksHigh = this.chunksHigh();
+    const total = chunksWide * chunksHigh;
+    const timer = `refreshChunks(${left}, ${top}) : ${total}`;
+    console.time(timer);
+
     const materials = this._materialArray;
     const camera = this._camera;
 
@@ -171,7 +173,7 @@ export default class ChunkRenderer {
 
     renderer.setRenderTarget(null);
 
-    console.timeEnd(`refreshChunks(${left}, ${top})`);
+    console.timeEnd(timer);
   }
 
   /**
@@ -187,25 +189,49 @@ export default class ChunkRenderer {
     const newTop = this._topLeftChunkCoordinate.top - 1;
     const left = this._topLeftChunkCoordinate.left;
 
-    // select the last row
     const start = chunksWide * (chunksHigh - 1);
-    const temp = this._chunks.splice(start, chunksWide);
 
-    // recycle it into the beginning of the chunk array
     console.time("panUp()");
-    for (let x = chunksWide - 1; x >= 0; x--) {
-      const updated = temp[x]
-        .update(left + x, newTop, map, materials)
-        .render(renderer, camera)
-        .setChunkLocation(x, 0);
-      this._chunks.unshift(updated);
+    // select the last row
+    const temp = this._chunks.splice(start, chunksWide);
+    for (let x = 0; x < chunksWide; x++) {
+      temp[x].update(left + x, newTop, map, materials).render(renderer, camera);
     }
+
+    this._chunks = temp.concat(this._chunks);
 
     renderer.setRenderTarget(null);
     this._topLeftChunkCoordinate.top = newTop;
-    this._reorientChunks(chunksWide);
-
+    this._reorientChunks(0);
     console.timeEnd("panUp()");
+  }
+
+  /**
+   *
+   * @param map {Int16Array}
+   * @param renderer {WebGLRenderer}
+   */
+  panDown(map, renderer) {
+    const chunksWide = this.chunksWide();
+    const materials = this._materialArray;
+    const camera = this._camera;
+    const newTop = this._topLeftChunkCoordinate.top + 1;
+    const left = this._topLeftChunkCoordinate.left;
+
+    console.time("panDown()");
+
+    // Select the first row
+    const temp = this._chunks.splice(0, chunksWide);
+    for (let x = 0; x < chunksWide; x++) {
+      temp[x].update(left + x, newTop, map, materials).render(renderer, camera);
+    }
+
+    this._chunks = this._chunks.concat(temp);
+
+    renderer.setRenderTarget(null);
+    this._topLeftChunkCoordinate.top = newTop;
+    this._reorientChunks(0);
+    console.timeEnd("panDown()");
   }
 
   /**
@@ -222,18 +248,17 @@ export default class ChunkRenderer {
     const newLeft = this._topLeftChunkCoordinate.left + 1;
 
     const chunks = this._chunks;
-    const right = newLeft + chunksWide;
+    const right = newLeft + chunksWide - 1;
 
-    // recycle it into the beginning of the chunk array
     console.time("panRight()");
     for (let y = 0; y < chunksHigh; y++) {
-      const temp = chunks[y * chunksWide]
+      const idx = y * chunksWide;
+      const temp = chunks[idx]
         .update(right, top + y, map, materials)
-        .render(renderer, camera)
-        .setChunkLocation(0, y);
+        .render(renderer, camera);
 
-      chunks.splice(y * chunksWide, 1);
-      chunks.splice(y * chunksWide - 1, 0, temp);
+      chunks.splice(idx, 1);
+      chunks.splice(idx + (chunksWide - 1), 0, temp);
     }
 
     renderer.setRenderTarget(null);
@@ -241,6 +266,39 @@ export default class ChunkRenderer {
     this._reorientChunks(0);
 
     console.timeEnd("panRight()");
+  }
+
+  /**
+   *
+   * @param map {Int16Array}
+   * @param renderer {WebGLRenderer}
+   */
+  panLeft(map, renderer) {
+    const chunksWide = this.chunksWide();
+    const chunksHigh = this.chunksHigh();
+    const materials = this._materialArray;
+    const camera = this._camera;
+    const top = this._topLeftChunkCoordinate.top;
+    const newLeft = this._topLeftChunkCoordinate.left - 1;
+
+    const chunks = this._chunks;
+
+    console.time("panLeft()");
+    for (let y = 0; y < chunksHigh; y++) {
+      const idx = y * chunksWide + (chunksWide - 1);
+      const temp = chunks[idx]
+        .update(newLeft, top + y, map, materials)
+        .render(renderer, camera);
+
+      chunks.splice(idx, 1);
+      chunks.splice(y * chunksWide, 0, temp);
+    }
+
+    renderer.setRenderTarget(null);
+    this._topLeftChunkCoordinate.left = newLeft;
+    this._reorientChunks(0);
+
+    console.timeEnd("panLeft()");
   }
 
   dispose() {
