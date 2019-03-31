@@ -1,6 +1,11 @@
 import Chunk from "./map-chunk";
 import * as THREE from "three";
-import { CHUNK_PIXEL_LENGTH, PRE_RENDER_CHUNKS } from "../../config";
+import {
+  CHUNK_PIXEL_LENGTH,
+  MAP_CHUNKS_HIGH,
+  MAP_CHUNKS_WIDE,
+  PRE_RENDER_CHUNKS
+} from "../../config";
 
 export default class ChunkRenderer {
   /**
@@ -147,9 +152,8 @@ export default class ChunkRenderer {
    * @param left {number} the X index of the start chunk
    * @param top {number} the Y index of the start chunk
    * @param map {Int16Array}
-   * @param renderer {WebGLRenderer}
    */
-  refreshChunks(left, top, map, renderer) {
+  refreshChunks(left, top, map) {
     const chunksWide = this.chunksWide();
     const chunksHigh = this.chunksHigh();
     const total = chunksWide * chunksHigh;
@@ -157,21 +161,16 @@ export default class ChunkRenderer {
     console.time(timer);
 
     const materials = this._materialArray;
-    const camera = this._camera;
 
     let idx = 0;
     for (let y = top; y < top + chunksHigh; y++) {
       for (let x = left; x < left + chunksWide; x++) {
-        this._chunks[idx++]
-          .update(x, y, map, materials)
-          .render(renderer, camera);
+        this._chunks[idx++].update(x, y, map, materials);
       }
     }
 
     this._topLeftChunkCoordinate.left = left;
     this._topLeftChunkCoordinate.top = top;
-
-    renderer.setRenderTarget(null);
 
     console.timeEnd(timer);
   }
@@ -179,126 +178,154 @@ export default class ChunkRenderer {
   /**
    *
    * @param map {Int16Array}
-   * @param renderer {WebGLRenderer}
+   * @returns {boolean} True if the pan happened
    */
-  panUp(map, renderer) {
+  panUp(map) {
+    const newTop = this._topLeftChunkCoordinate.top - 1;
+
+    if (newTop < 0) {
+      return false;
+    }
+
     const chunksWide = this.chunksWide();
     const chunksHigh = this.chunksHigh();
     const materials = this._materialArray;
-    const camera = this._camera;
-    const newTop = this._topLeftChunkCoordinate.top - 1;
     const left = this._topLeftChunkCoordinate.left;
 
     const start = chunksWide * (chunksHigh - 1);
 
-    console.time("panUp()");
     // select the last row
     const temp = this._chunks.splice(start, chunksWide);
     for (let x = 0; x < chunksWide; x++) {
-      temp[x].update(left + x, newTop, map, materials).render(renderer, camera);
+      temp[x].update(left + x, newTop, map, materials);
     }
 
     this._chunks = temp.concat(this._chunks);
 
-    renderer.setRenderTarget(null);
     this._topLeftChunkCoordinate.top = newTop;
     this._reorientChunks(0);
-    console.timeEnd("panUp()");
+
+    return true;
   }
 
   /**
    *
    * @param map {Int16Array}
-   * @param renderer {WebGLRenderer}
+   * @returns {boolean} True if the pan happened
    */
-  panDown(map, renderer) {
+  panDown(map) {
+    const newTop = this._topLeftChunkCoordinate.top + 1;
+
+    if (newTop + this.chunksHigh() >= MAP_CHUNKS_HIGH) {
+      return false;
+    }
+
     const chunksWide = this.chunksWide();
     const materials = this._materialArray;
-    const camera = this._camera;
-    const newTop = this._topLeftChunkCoordinate.top + 1;
     const left = this._topLeftChunkCoordinate.left;
-
-    console.time("panDown()");
 
     // Select the first row
     const temp = this._chunks.splice(0, chunksWide);
     for (let x = 0; x < chunksWide; x++) {
-      temp[x].update(left + x, newTop, map, materials).render(renderer, camera);
+      temp[x].update(left + x, newTop, map, materials);
     }
+
+    console.debug(temp.length);
 
     this._chunks = this._chunks.concat(temp);
 
-    renderer.setRenderTarget(null);
     this._topLeftChunkCoordinate.top = newTop;
     this._reorientChunks(0);
-    console.timeEnd("panDown()");
+
+    return true;
   }
 
   /**
    *
    * @param map {Int16Array}
-   * @param renderer {WebGLRenderer}
+   * @returns {boolean} True if the pan happened
    */
-  panRight(map, renderer) {
+  panRight(map) {
     const chunksWide = this.chunksWide();
-    const chunksHigh = this.chunksHigh();
-    const materials = this._materialArray;
-    const camera = this._camera;
-    const top = this._topLeftChunkCoordinate.top;
     const newLeft = this._topLeftChunkCoordinate.left + 1;
 
+    if (chunksWide + newLeft >= MAP_CHUNKS_WIDE) {
+      return false;
+    }
+
+    const chunksHigh = this.chunksHigh();
+    const materials = this._materialArray;
+    const top = this._topLeftChunkCoordinate.top;
     const chunks = this._chunks;
     const right = newLeft + chunksWide - 1;
 
-    console.time("panRight()");
     for (let y = 0; y < chunksHigh; y++) {
       const idx = y * chunksWide;
-      const temp = chunks[idx]
-        .update(right, top + y, map, materials)
-        .render(renderer, camera);
+      const temp = chunks[idx].update(right, top + y, map, materials);
 
       chunks.splice(idx, 1);
       chunks.splice(idx + (chunksWide - 1), 0, temp);
     }
 
-    renderer.setRenderTarget(null);
     this._topLeftChunkCoordinate.left = newLeft;
     this._reorientChunks(0);
 
-    console.timeEnd("panRight()");
+    return true;
   }
 
   /**
    *
    * @param map {Int16Array}
-   * @param renderer {WebGLRenderer}
+   * @returns {boolean} True if the pan happened
    */
-  panLeft(map, renderer) {
+  panLeft(map) {
+    const newLeft = this._topLeftChunkCoordinate.left - 1;
+
+    if (newLeft < 0) {
+      return false;
+    }
+
     const chunksWide = this.chunksWide();
     const chunksHigh = this.chunksHigh();
     const materials = this._materialArray;
-    const camera = this._camera;
     const top = this._topLeftChunkCoordinate.top;
-    const newLeft = this._topLeftChunkCoordinate.left - 1;
 
     const chunks = this._chunks;
 
-    console.time("panLeft()");
     for (let y = 0; y < chunksHigh; y++) {
       const idx = y * chunksWide + (chunksWide - 1);
-      const temp = chunks[idx]
-        .update(newLeft, top + y, map, materials)
-        .render(renderer, camera);
+      const temp = chunks[idx].update(newLeft, top + y, map, materials);
 
       chunks.splice(idx, 1);
       chunks.splice(y * chunksWide, 0, temp);
     }
 
-    renderer.setRenderTarget(null);
     this._topLeftChunkCoordinate.left = newLeft;
     this._reorientChunks(0);
 
-    console.timeEnd("panLeft()");
+    return true;
+  }
+
+  /**
+   *
+   * @param renderer {WebGLRenderer}
+   */
+  update(renderer) {
+    const start = performance.now();
+    const chunks = this._chunks;
+    const chunkCount = chunks.length;
+    const camera = this._camera;
+    let updateCount = 0;
+    for (let i = 0; i < chunkCount; i++) {
+      if (chunks[i].render(renderer, camera)) {
+        updateCount++;
+      }
+    }
+
+    if (updateCount) {
+      const end = performance.now();
+      console.log("Updated", updateCount, "chunks in", end - start, "ms");
+    }
   }
 
   dispose() {

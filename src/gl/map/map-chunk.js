@@ -86,6 +86,13 @@ export default class Chunk {
    */
   _currentSceneLocation = { x: 0, y: 0 };
 
+  /**
+   *
+   * @type {boolean}
+   * @private
+   */
+  _dirty = false;
+
   constructor() {
     this._texture.texture.generateMipmaps = false;
     this._fill();
@@ -124,7 +131,12 @@ export default class Chunk {
     for (let y = 0; y < CHUNK_TILE_LENGTH; y++) {
       mapIdx = startY + y * MAP_TILES_WIDE + startX;
       for (let x = 0; x < CHUNK_TILE_LENGTH; x++) {
-        sprites[spritesIdx++].material = materials[map[mapIdx++]];
+        const sprite = sprites[spritesIdx++];
+        const material = materials[map[mapIdx++]];
+        if (sprite.material !== material) {
+          sprite.material = material;
+          this._dirty = true;
+        }
       }
     }
 
@@ -135,12 +147,17 @@ export default class Chunk {
    *
    * @param renderer {WebGLRenderer}
    * @param camera {OrthographicCamera}
-   * @returns {Chunk}
+   * @returns {boolean}
    */
   render(renderer, camera) {
+    if (!this._dirty) {
+      return false;
+    }
+
     renderer.setRenderTarget(this._texture);
     renderer.render(this._scene, camera);
-    return this;
+    this._dirty = false;
+    return true;
   }
 
   /**

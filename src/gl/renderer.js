@@ -4,7 +4,6 @@ import { listenForKeydown, stopListeningForKeydown } from "./keydown";
 import ChunkRenderer from "./map/map-chunk-renderer";
 import {
   CHUNK_PIXEL_LENGTH,
-  CHUNK_TILE_LENGTH,
   MAP_PIXELS_HIGH,
   MAP_PIXELS_WIDE,
   MAP_TILES_HIGH,
@@ -176,20 +175,20 @@ export default class Renderer {
     const materialCount = this._tileMaterials.size();
     for (let i = size; i >= 0; i--) {
       //map[i] = Math.floor(Math.random() * materialCount);
-      //map[i] = i % materialCount;
+      map[i] = i % materialCount;
 
-      const x = i % MAP_TILES_WIDE;
-      const y = Math.floor(i / MAP_TILES_WIDE);
-      const chunkY = y % CHUNK_TILE_LENGTH;
-      const chunkX = x % CHUNK_TILE_LENGTH;
+      // const x = i % MAP_TILES_WIDE;
+      // const y = Math.floor(i / MAP_TILES_WIDE);
+      // const chunkY = y % CHUNK_TILE_LENGTH;
+      // const chunkX = x % CHUNK_TILE_LENGTH;
 
-      if (chunkY === 0 || chunkY === CHUNK_TILE_LENGTH - 1) {
-        map[i] = 0;
-      } else if (chunkX === 0 || chunkX === CHUNK_TILE_LENGTH - 1) {
-        map[i] = 4;
-      } else {
-        map[i] = 8;
-      }
+      // if (chunkY === 0 || chunkY === CHUNK_TILE_LENGTH - 1) {
+      //   map[i] = 0;
+      // } else if (chunkX === 0 || chunkX === CHUNK_TILE_LENGTH - 1) {
+      //   map[i] = 4;
+      // } else {
+      //   map[i] = 8;
+      // }
     }
   }
 
@@ -249,14 +248,14 @@ export default class Renderer {
       case " ":
         this._rendering = !this._rendering;
         if (this._rendering) {
-          this.render();
+          this._renderer.setAnimationLoop(this.render);
           console.log("Rendering enabled.");
         } else {
           console.log("Rendering disabled.");
         }
         break;
       default:
-        console.log(key);
+        console.debug("Unhandled key", key);
         break;
     }
   };
@@ -278,7 +277,7 @@ export default class Renderer {
     // This represents the top left of the view into the map
     const left = Math.max(0, chunkX - Math.floor(sceneChunksWide / 2));
     const top = Math.max(0, chunkY - Math.floor(sceneChunksHigh / 2));
-    this._chunkRenderer.refreshChunks(left, top, this._map, this._renderer);
+    this._chunkRenderer.refreshChunks(left, top, this._map);
   }
 
   start() {
@@ -286,7 +285,7 @@ export default class Renderer {
     listenForKeydown(this.name(), this.keydown);
     this._centerAroundCamera();
     this._rendering = true;
-    this.render();
+    this._renderer.setAnimationLoop(this.render);
   }
 
   _applyCameraDelta() {
@@ -308,36 +307,46 @@ export default class Renderer {
 
     const scenePixelsHigh =
       this._chunkRenderer.chunksHigh() * CHUNK_PIXEL_LENGTH;
-    const middle =
+    const middleY =
       Math.floor(scenePixelsHigh / 2) - Math.floor(this._camera.top / 2);
 
-    if (this._camera.position.y >= middle + CHUNK_PIXEL_LENGTH) {
-      this._chunkRenderer.panUp(this._map, this._renderer);
-      this._camera.position.y -= CHUNK_PIXEL_LENGTH;
-    } else if (this._camera.position.y <= middle - CHUNK_PIXEL_LENGTH) {
-      this._chunkRenderer.panDown(this._map, this._renderer);
-      this._camera.position.y += CHUNK_PIXEL_LENGTH;
+    const scenePixelsWide =
+      this._chunkRenderer.chunksWide() * CHUNK_PIXEL_LENGTH;
+    const middleX =
+      Math.floor(scenePixelsWide / 2) - Math.floor(this._camera.right / 2);
+
+    if (this._camera.position.y >= middleY + CHUNK_PIXEL_LENGTH) {
+      if (this._chunkRenderer.panUp(this._map)) {
+        this._camera.position.y -= CHUNK_PIXEL_LENGTH;
+      }
+    } else if (this._camera.position.y <= middleY - CHUNK_PIXEL_LENGTH) {
+      if (this._chunkRenderer.panDown(this._map)) {
+        this._camera.position.y += CHUNK_PIXEL_LENGTH;
+      }
     }
 
-    if (this._camera.position.x >= middle + CHUNK_PIXEL_LENGTH) {
-      this._chunkRenderer.panRight(this._map, this._renderer);
-      this._camera.position.x -= CHUNK_PIXEL_LENGTH;
-    } else if (this._camera.position.x <= middle + CHUNK_PIXEL_LENGTH) {
-      this._chunkRenderer.panLeft(this._map, this._renderer);
-      this._camera.position.x += CHUNK_PIXEL_LENGTH;
+    if (this._camera.position.x >= middleX + CHUNK_PIXEL_LENGTH) {
+      if (this._chunkRenderer.panRight(this._map)) {
+        this._camera.position.x -= CHUNK_PIXEL_LENGTH;
+      }
+    } else if (this._camera.position.x <= middleX - CHUNK_PIXEL_LENGTH) {
+      if (this._chunkRenderer.panLeft(this._map)) {
+        this._camera.position.x += CHUNK_PIXEL_LENGTH;
+      }
     }
   }
 
   render = () => {
     if (!this._rendering) {
-      return;
+      this._renderer.setAnimationLoop(null);
     }
-
-    requestAnimationFrame(this.render);
 
     stats.begin();
 
     this._applyCameraDelta();
+    this._chunkRenderer.update(this._renderer);
+
+    this._renderer.setRenderTarget(null);
     this._renderer.render(this._scene, this._camera);
 
     stats.end();
