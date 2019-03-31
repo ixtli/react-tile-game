@@ -229,7 +229,8 @@ export default class ChunkRenderer {
     for (let y = 0; y < chunksHigh; y++) {
       const temp = chunks[y * chunksWide]
         .update(right, top + y, map, materials)
-        .render(renderer, camera);
+        .render(renderer, camera)
+        .setChunkLocation(0, y);
 
       chunks.splice(y * chunksWide, 1);
       chunks.splice(y * chunksWide - 1, 0, temp);

@@ -8,8 +8,7 @@ import {
   MAP_PIXELS_HIGH,
   MAP_PIXELS_WIDE,
   MAP_TILES_HIGH,
-  MAP_TILES_WIDE,
-  TILE_PIXEL_LENGTH
+  MAP_TILES_WIDE
 } from "../config";
 import { stats } from "../util/stats-wrapper";
 import { getWebGLContextFromCanvas } from "../util/compatability";
@@ -314,7 +313,7 @@ export default class Renderer {
 
     if (this._camera.position.y >= middle + CHUNK_PIXEL_LENGTH) {
       this._chunkRenderer.panUp(this._map, this._renderer);
-      this._camera.position.y -= CHUNK_PIXEL_LENGTH - TILE_PIXEL_LENGTH;
+      this._camera.position.y -= CHUNK_PIXEL_LENGTH;
     }
 
     if (this._camera.position.x >= middle + CHUNK_PIXEL_LENGTH) {

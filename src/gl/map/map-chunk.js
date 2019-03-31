@@ -8,7 +8,7 @@ import {
 } from "../../config";
 
 export default class Chunk {
-  static CHUNK_DEBUG_SPACING = 5;
+  static CHUNK_DEBUG_SPACING = 0;
 
   static HALF_CHUNK_PIXEL_LENGTH = Math.floor(CHUNK_PIXEL_LENGTH / 2);
 
