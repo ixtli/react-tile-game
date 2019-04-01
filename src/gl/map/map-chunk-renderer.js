@@ -78,17 +78,17 @@ export default class ChunkRenderer {
 
   /**
    *
-   * @param begin {number}
    * @private
    */
-  _reorientChunks(begin) {
+  _reorientChunks() {
     const chunksWide = this.chunksWide();
     const chunks = this._chunks;
     const chunkCount = chunks.length;
-    for (let i = begin; i < chunkCount; i++) {
+    const sceneHeight = this._sceneDimensions.height;
+    for (let i = 0; i < chunkCount; i++) {
       const x = i % chunksWide;
       const y = Math.floor(i / chunksWide);
-      chunks[i].setSceneLocation(x, y);
+      chunks[i].setSceneLocation(x, y, sceneHeight);
     }
   }
 
@@ -108,8 +108,8 @@ export default class ChunkRenderer {
 
     this._chunksHigh = chunksHigh;
     this._chunksWide = chunksWide;
-    this._sceneDimensions.width = chunksHigh * CHUNK_PIXEL_LENGTH;
-    this._sceneDimensions.height = chunksWide * CHUNK_PIXEL_LENGTH;
+    this._sceneDimensions.width = chunksWide * CHUNK_PIXEL_LENGTH;
+    this._sceneDimensions.height = chunksHigh * CHUNK_PIXEL_LENGTH;
 
     if (oldChunkCount === newChunkCount) {
       return;
@@ -126,8 +126,8 @@ export default class ChunkRenderer {
         this._chunks[i].dispose();
       }
 
-      this._chunks.splice(newChunkCount, Math.abs(difference));
-      this._reorientChunks(0);
+      this._chunks.splice(newChunkCount, difference);
+      this._reorientChunks();
 
       // reorient new chunks
       console.timeEnd("windowResized()");
@@ -141,7 +141,7 @@ export default class ChunkRenderer {
       parentScene.add(newChunk.getMesh());
     }
 
-    this._reorientChunks(oldChunkCount);
+    this._reorientChunks();
 
     console.timeEnd("windowResized()");
     console.log("Created", difference, "chunks (", newChunkCount, ")");
@@ -153,11 +153,11 @@ export default class ChunkRenderer {
    * @param top {number} the Y index of the start chunk
    * @param map {Int16Array}
    */
-  refreshChunks(left, top, map) {
+  setLeftTop(left, top, map) {
     const chunksWide = this.chunksWide();
     const chunksHigh = this.chunksHigh();
     const total = chunksWide * chunksHigh;
-    const timer = `refreshChunks(${left}, ${top}) : ${total}`;
+    const timer = `setLeftTop(${left}, ${top}) : ${total}`;
     console.time(timer);
 
     const materials = this._materialArray;
@@ -171,6 +171,7 @@ export default class ChunkRenderer {
 
     this._topLeftChunkCoordinate.left = left;
     this._topLeftChunkCoordinate.top = top;
+    this._reorientChunks();
 
     console.timeEnd(timer);
   }
@@ -201,9 +202,8 @@ export default class ChunkRenderer {
     }
 
     this._chunks = temp.concat(this._chunks);
-
     this._topLeftChunkCoordinate.top = newTop;
-    this._reorientChunks(0);
+    this._reorientChunks();
 
     return true;
   }
@@ -226,16 +226,14 @@ export default class ChunkRenderer {
 
     // Select the first row
     const temp = this._chunks.splice(0, chunksWide);
+    const bottom = newTop + this.chunksHigh() - 1;
     for (let x = 0; x < chunksWide; x++) {
-      temp[x].update(left + x, newTop, map, materials);
+      temp[x].update(left + x, bottom, map, materials);
     }
 
-    console.debug(temp.length);
-
     this._chunks = this._chunks.concat(temp);
-
     this._topLeftChunkCoordinate.top = newTop;
-    this._reorientChunks(0);
+    this._reorientChunks();
 
     return true;
   }
@@ -268,7 +266,7 @@ export default class ChunkRenderer {
     }
 
     this._topLeftChunkCoordinate.left = newLeft;
-    this._reorientChunks(0);
+    this._reorientChunks();
 
     return true;
   }
@@ -301,7 +299,7 @@ export default class ChunkRenderer {
     }
 
     this._topLeftChunkCoordinate.left = newLeft;
-    this._reorientChunks(0);
+    this._reorientChunks();
 
     return true;
   }

@@ -2,6 +2,7 @@ import * as THREE from "three";
 import {
   CHUNK_PIXEL_LENGTH,
   CHUNK_TILE_LENGTH,
+  HALF_CHUNK_PIXEL_LENGTH,
   MAP_TILES_WIDE,
   TILE_PIXEL_LENGTH,
   TILES_PER_CHUNK
@@ -9,8 +10,6 @@ import {
 
 export default class Chunk {
   static CHUNK_DEBUG_SPACING = 0;
-
-  static HALF_CHUNK_PIXEL_LENGTH = Math.floor(CHUNK_PIXEL_LENGTH / 2);
 
   static MATERIAL_OPTIONS = {
     blending: THREE.NoBlending,
@@ -84,7 +83,14 @@ export default class Chunk {
    * @type {{x: number, y: number}}
    * @private
    */
-  _currentSceneLocation = { x: 0, y: 0 };
+  _currentSceneLocation = { x: -1, y: -1 };
+
+  /**
+   *
+   * @type {{x: number, y: number}}
+   * @private
+   */
+  _currentMapLocation = { x: -1, y: -1 };
 
   /**
    *
@@ -122,14 +128,21 @@ export default class Chunk {
    * @return {Chunk}
    */
   update(startChunkX, startChunkY, map, materials) {
-    const startY = startChunkY * (MAP_TILES_WIDE * CHUNK_TILE_LENGTH);
-    const startX = startChunkX * CHUNK_TILE_LENGTH;
+    if (
+      this._currentMapLocation.x === startChunkX &&
+      this._currentMapLocation.y === startChunkY
+    ) {
+      return this;
+    }
+
+    const tileStartY = startChunkY * (MAP_TILES_WIDE * CHUNK_TILE_LENGTH);
+    const tileStartX = startChunkX * CHUNK_TILE_LENGTH;
     const sprites = this._sprites;
 
     let mapIdx;
     let spritesIdx = 0;
     for (let y = 0; y < CHUNK_TILE_LENGTH; y++) {
-      mapIdx = startY + y * MAP_TILES_WIDE + startX;
+      mapIdx = tileStartY + tileStartX + y * MAP_TILES_WIDE;
       for (let x = 0; x < CHUNK_TILE_LENGTH; x++) {
         const sprite = sprites[spritesIdx++];
         const material = materials[map[mapIdx++]];
@@ -139,6 +152,9 @@ export default class Chunk {
         }
       }
     }
+
+    this._currentMapLocation.x = startChunkX;
+    this._currentMapLocation.y = startChunkY;
 
     return this;
   }
@@ -172,21 +188,23 @@ export default class Chunk {
    *
    * @param x {number}
    * @param y {number}
+   * @param sceneHeight {number}
    * @returns {Chunk}
    */
-  setSceneLocation(x, y) {
+  setSceneLocation(x, y, sceneHeight) {
     if (this._currentSceneLocation.x !== x) {
       this._currentSceneLocation.x = x;
       this._mesh.position.x =
         x * (CHUNK_PIXEL_LENGTH + Chunk.CHUNK_DEBUG_SPACING) +
-        Chunk.HALF_CHUNK_PIXEL_LENGTH;
+        HALF_CHUNK_PIXEL_LENGTH;
     }
 
     if (this._currentSceneLocation.y !== y) {
       this._currentSceneLocation.y = y;
       this._mesh.position.y =
-        y * (CHUNK_PIXEL_LENGTH + Chunk.CHUNK_DEBUG_SPACING) +
-        Chunk.HALF_CHUNK_PIXEL_LENGTH;
+        sceneHeight +
+        HALF_CHUNK_PIXEL_LENGTH -
+        (y + 1) * (CHUNK_PIXEL_LENGTH + Chunk.CHUNK_DEBUG_SPACING);
     }
 
     return this;

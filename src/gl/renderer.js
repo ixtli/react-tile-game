@@ -4,6 +4,7 @@ import { listenForKeydown, stopListeningForKeydown } from "./keydown";
 import ChunkRenderer from "./map/map-chunk-renderer";
 import {
   CHUNK_PIXEL_LENGTH,
+  CHUNK_TILE_LENGTH,
   MAP_PIXELS_HIGH,
   MAP_PIXELS_WIDE,
   MAP_TILES_HIGH,
@@ -123,17 +124,21 @@ export default class Renderer {
    * @type {{x: number, y: number}}
    * @private
    */
-  _cameraWorldPixel = {
-    x: Math.floor(MAP_PIXELS_WIDE / 2),
-    y: Math.floor(MAP_PIXELS_HIGH / 2)
-  };
+  _cameraWorldPixel = { x: 0, y: 0 };
 
   /**
    *
-   * @type {{x: number, y: number}}
+   * @type {{offset: number, top: number, bottom: number, left: number, right:
+   *   number}}
    * @private
    */
-  _sceneMiddle = { x: 0, y: 0 };
+  _panBoundary = {
+    offset: 0,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0
+  };
 
   /**
    *
@@ -169,26 +174,31 @@ export default class Renderer {
     return "renderer-" + this._index;
   }
 
+  generateTestMap() {
+    const map = this._map;
+    const size = map.length;
+    for (let i = size; i >= 0; i--) {
+      const x = i % MAP_TILES_WIDE;
+      const y = Math.floor(i / MAP_TILES_WIDE);
+      const chunkY = y % CHUNK_TILE_LENGTH;
+      const chunkX = x % CHUNK_TILE_LENGTH;
+
+      if (chunkY === 0 || chunkY === CHUNK_TILE_LENGTH - 1) {
+        map[i] = 0;
+      } else if (chunkX === 0 || chunkX === CHUNK_TILE_LENGTH - 1) {
+        map[i] = 4;
+      } else {
+        map[i] = 8;
+      }
+    }
+  }
+
   generateMap() {
     const map = this._map;
     const size = map.length;
     const materialCount = this._tileMaterials.size();
     for (let i = size; i >= 0; i--) {
-      //map[i] = Math.floor(Math.random() * materialCount);
-      map[i] = i % materialCount;
-
-      // const x = i % MAP_TILES_WIDE;
-      // const y = Math.floor(i / MAP_TILES_WIDE);
-      // const chunkY = y % CHUNK_TILE_LENGTH;
-      // const chunkX = x % CHUNK_TILE_LENGTH;
-
-      // if (chunkY === 0 || chunkY === CHUNK_TILE_LENGTH - 1) {
-      //   map[i] = 0;
-      // } else if (chunkX === 0 || chunkX === CHUNK_TILE_LENGTH - 1) {
-      //   map[i] = 4;
-      // } else {
-      //   map[i] = 8;
-      // }
+      map[i] = Math.floor(Math.random() * materialCount);
     }
   }
 
@@ -209,12 +219,23 @@ export default class Renderer {
 
     this._chunkRenderer.windowResized(width, height, this._scene);
 
+    // How far the camera can move from the center of the scene before chunks
+    // have to be shimmied around
     const sceneDimensions = this._chunkRenderer.sceneDimensions();
-    this._sceneMiddle.x =
-      Math.floor(sceneDimensions.width / 2) - Math.floor(width / 2);
-    this._sceneMiddle.y =
-      Math.floor(sceneDimensions.height / 2) - Math.floor(height / 2);
+    this._panBoundary.offset = CHUNK_PIXEL_LENGTH;
+    this._panBoundary.top = sceneDimensions.height - height;
+    this._panBoundary.bottom = 0;
+    this._panBoundary.left = 0;
+    this._panBoundary.right = sceneDimensions.width - width;
   };
+
+  width() {
+    return this._camera.right;
+  }
+
+  height() {
+    return this._camera.top;
+  }
 
   destroy() {
     this._rendering = false;
@@ -260,30 +281,50 @@ export default class Renderer {
     }
   };
 
-  _centerAroundCamera() {
-    this._camera.position.x = this._sceneMiddle.x;
-    this._camera.position.y = this._sceneMiddle.y;
-    this._camera.updateProjectionMatrix();
-
-    const { x, y } = this._cameraWorldPixel;
+  centerCameraOnWorldPixel(x, y) {
+    console.assert(x >= 0);
+    console.assert(y >= 0);
+    console.assert(x < MAP_PIXELS_WIDE);
+    console.assert(y < MAP_PIXELS_HIGH);
 
     // What chunk in the map is (x,y) in?
     const chunkX = Math.floor(x / CHUNK_PIXEL_LENGTH);
     const chunkY = Math.floor(y / CHUNK_PIXEL_LENGTH);
 
+    console.debug(`Camera moved to ${x}, ${y} (chunk ${chunkX}, ${chunkY}).`);
+
     const sceneChunksWide = this._chunkRenderer.chunksWide();
     const sceneChunksHigh = this._chunkRenderer.chunksHigh();
 
     // This represents the top left of the view into the map
-    const left = Math.max(0, chunkX - Math.floor(sceneChunksWide / 2));
-    const top = Math.max(0, chunkY - Math.floor(sceneChunksHigh / 2));
-    this._chunkRenderer.refreshChunks(left, top, this._map);
+    const left = Math.min(
+      Math.max(0, chunkX - Math.floor(sceneChunksWide / 2)),
+      sceneChunksWide
+    );
+
+    const top = Math.min(
+      Math.max(0, chunkY - Math.floor(sceneChunksHigh / 2)),
+      sceneChunksHigh
+    );
+
+    this._chunkRenderer.setLeftTop(left, top, this._map);
+
+    this._cameraDeltaX = 0;
+    this._cameraDeltaY = 0;
+    this._cameraWorldPixel.x = x;
+    this._cameraWorldPixel.y = y;
+
+    // translate the world space into screen space
+    // const sceneLeft = x - left * CHUNK_PIXEL_LENGTH;
+    // const sceneTop = top * CHUNK_PIXEL_LENGTH - y;
+    // this._camera.position.x = sceneLeft - Math.round(this.width() / 2);
+    // this._camera.position.y = sceneTop - Math.round(this.height() / 2);
   }
 
   start() {
     listenForResize(this.name(), this.resize);
     listenForKeydown(this.name(), this.keydown);
-    this._centerAroundCamera();
+    this.centerCameraOnWorldPixel(MAP_PIXELS_WIDE / 2, MAP_PIXELS_WIDE / 2);
     this._rendering = true;
     this._renderer.setAnimationLoop(this.render);
   }
@@ -305,33 +346,23 @@ export default class Renderer {
     // noinspection JSSuspiciousNameCombination
     this._cameraWorldPixel.y += Math.floor(dY);
 
-    const scenePixelsHigh =
-      this._chunkRenderer.chunksHigh() * CHUNK_PIXEL_LENGTH;
-    const middleY =
-      Math.floor(scenePixelsHigh / 2) - Math.floor(this._camera.top / 2);
-
-    const scenePixelsWide =
-      this._chunkRenderer.chunksWide() * CHUNK_PIXEL_LENGTH;
-    const middleX =
-      Math.floor(scenePixelsWide / 2) - Math.floor(this._camera.right / 2);
-
-    if (this._camera.position.y >= middleY + CHUNK_PIXEL_LENGTH) {
+    if (this._camera.position.y >= this._panBoundary.top) {
       if (this._chunkRenderer.panUp(this._map)) {
-        this._camera.position.y -= CHUNK_PIXEL_LENGTH;
+        this._camera.position.y -= this._panBoundary.offset;
       }
-    } else if (this._camera.position.y <= middleY - CHUNK_PIXEL_LENGTH) {
+    } else if (this._camera.position.y < 0) {
       if (this._chunkRenderer.panDown(this._map)) {
-        this._camera.position.y += CHUNK_PIXEL_LENGTH;
+        this._camera.position.y += this._panBoundary.offset;
       }
     }
 
-    if (this._camera.position.x >= middleX + CHUNK_PIXEL_LENGTH) {
+    if (this._camera.position.x >= this._panBoundary.right) {
       if (this._chunkRenderer.panRight(this._map)) {
-        this._camera.position.x -= CHUNK_PIXEL_LENGTH;
+        this._camera.position.x -= this._panBoundary.offset;
       }
-    } else if (this._camera.position.x <= middleX - CHUNK_PIXEL_LENGTH) {
+    } else if (this._camera.position.x <= this._panBoundary.left) {
       if (this._chunkRenderer.panLeft(this._map)) {
-        this._camera.position.x += CHUNK_PIXEL_LENGTH;
+        this._camera.position.x += this._panBoundary.offset;
       }
     }
   }

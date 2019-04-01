@@ -6,8 +6,8 @@ export const MAP_CHUNKS_WIDE = 32;
 export const MAP_CHUNKS_HIGH = 32;
 
 // Performance
-export const CHUNK_TILE_LENGTH = 32;
-export const PRE_RENDER_CHUNKS = 2;
+export const CHUNK_TILE_LENGTH = 16;
+export const PRE_RENDER_CHUNKS = 1;
 
 // Computed
 export const TILES_PER_CHUNK = CHUNK_TILE_LENGTH * CHUNK_TILE_LENGTH;
@@ -16,6 +16,7 @@ export const MAP_TILES_WIDE = MAP_CHUNKS_WIDE * CHUNK_TILE_LENGTH;
 export const MAP_TILES_HIGH = MAP_CHUNKS_HIGH * CHUNK_TILE_LENGTH;
 export const MAP_PIXELS_WIDE = MAP_TILES_WIDE * TILE_PIXEL_LENGTH;
 export const MAP_PIXELS_HIGH = MAP_TILES_HIGH * TILE_PIXEL_LENGTH;
+export const HALF_CHUNK_PIXEL_LENGTH = Math.floor(CHUNK_PIXEL_LENGTH / 2);
 
 console.debug("MAP_TILES_WIDE", MAP_TILES_WIDE);
 console.debug("CHUNK_PIXEL_LENGTH", CHUNK_PIXEL_LENGTH);
