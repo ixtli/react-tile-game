@@ -254,16 +254,36 @@ export default class Renderer {
 
   keydown = key => {
     switch (key) {
+      case "8":
       case "w":
         this._cameraDeltaY += Renderer.KEY_JUMP_SIZE;
         break;
+      case "2":
       case "s":
         this._cameraDeltaY -= Renderer.KEY_JUMP_SIZE;
         break;
+      case "4":
       case "a":
         this._cameraDeltaX -= Renderer.KEY_JUMP_SIZE;
         break;
+      case "6":
       case "d":
+        this._cameraDeltaX += Renderer.KEY_JUMP_SIZE;
+        break;
+      case "7":
+        this._cameraDeltaY += Renderer.KEY_JUMP_SIZE;
+        this._cameraDeltaX -= Renderer.KEY_JUMP_SIZE;
+        break;
+      case "9":
+        this._cameraDeltaY += Renderer.KEY_JUMP_SIZE;
+        this._cameraDeltaX += Renderer.KEY_JUMP_SIZE;
+        break;
+      case "1":
+        this._cameraDeltaY -= Renderer.KEY_JUMP_SIZE;
+        this._cameraDeltaX -= Renderer.KEY_JUMP_SIZE;
+        break;
+      case "3":
+        this._cameraDeltaY -= Renderer.KEY_JUMP_SIZE;
         this._cameraDeltaX += Renderer.KEY_JUMP_SIZE;
         break;
       case " ":
@@ -314,6 +334,7 @@ export default class Renderer {
     this._cameraWorldPixel.x = x;
     this._cameraWorldPixel.y = y;
 
+    // @TODO: This needs to put the center of the camera over the pixel (x,y)
     // translate the world space into screen space
     // const sceneLeft = x - left * CHUNK_PIXEL_LENGTH;
     // const sceneTop = top * CHUNK_PIXEL_LENGTH - y;
@@ -346,21 +367,21 @@ export default class Renderer {
     // noinspection JSSuspiciousNameCombination
     this._cameraWorldPixel.y += Math.floor(dY);
 
-    if (this._camera.position.y >= this._panBoundary.top) {
+    if (this._camera.position.y > this._panBoundary.top) {
       if (this._chunkRenderer.panUp(this._map)) {
         this._camera.position.y -= this._panBoundary.offset;
       }
-    } else if (this._camera.position.y < 0) {
+    } else if (this._camera.position.y < this._panBoundary.bottom) {
       if (this._chunkRenderer.panDown(this._map)) {
         this._camera.position.y += this._panBoundary.offset;
       }
     }
 
-    if (this._camera.position.x >= this._panBoundary.right) {
+    if (this._camera.position.x > this._panBoundary.right) {
       if (this._chunkRenderer.panRight(this._map)) {
         this._camera.position.x -= this._panBoundary.offset;
       }
-    } else if (this._camera.position.x <= this._panBoundary.left) {
+    } else if (this._camera.position.x < this._panBoundary.left) {
       if (this._chunkRenderer.panLeft(this._map)) {
         this._camera.position.x += this._panBoundary.offset;
       }
