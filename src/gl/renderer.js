@@ -87,17 +87,17 @@ export default class Renderer {
 
   /**
    *
-   * @type {ChunkRenderer}
-   * @private
-   */
-  _chunkRenderer = new ChunkRenderer(this._tileMaterials);
-
-  /**
-   *
    * @type {Int16Array}
    * @private
    */
   _map = new Int16Array(MAP_TILES_WIDE * MAP_TILES_HIGH);
+
+  /**
+   *
+   * @type {ChunkRenderer}
+   * @private
+   */
+  _chunkRenderer = new ChunkRenderer(this._map, this._tileMaterials);
 
   /**
    *
@@ -367,24 +367,33 @@ export default class Renderer {
     // noinspection JSSuspiciousNameCombination
     this._cameraWorldPixel.y += Math.floor(dY);
 
+    let delta = false;
     if (this._camera.position.y > this._panBoundary.top) {
-      if (this._chunkRenderer.panUp(this._map)) {
+      if (this._chunkRenderer.panUp()) {
         this._camera.position.y -= this._panBoundary.offset;
+        delta = true;
       }
     } else if (this._camera.position.y < this._panBoundary.bottom) {
-      if (this._chunkRenderer.panDown(this._map)) {
+      if (this._chunkRenderer.panDown()) {
         this._camera.position.y += this._panBoundary.offset;
+        delta = true;
       }
     }
 
     if (this._camera.position.x > this._panBoundary.right) {
-      if (this._chunkRenderer.panRight(this._map)) {
+      if (this._chunkRenderer.panRight()) {
         this._camera.position.x -= this._panBoundary.offset;
+        delta = true;
       }
     } else if (this._camera.position.x < this._panBoundary.left) {
-      if (this._chunkRenderer.panLeft(this._map)) {
+      if (this._chunkRenderer.panLeft()) {
         this._camera.position.x += this._panBoundary.offset;
+        delta = true;
       }
+    }
+
+    if (delta) {
+      this._chunkRenderer.reorientChunks();
     }
   }
 

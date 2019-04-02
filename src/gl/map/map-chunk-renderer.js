@@ -59,6 +59,13 @@ export default class ChunkRenderer {
 
   /**
    *
+   * @type {Int16Array}
+   * @private
+   */
+  _map = null;
+
+  /**
+   *
    * @type {{width: number, height: number}}
    * @private
    */
@@ -66,29 +73,29 @@ export default class ChunkRenderer {
 
   /**
    *
+   * @param map {Int16Array}
    * @param materials {TileMaterialManager}
    */
-  constructor(materials) {
+  constructor(map, materials) {
     this._camera.position.z = 1;
     this._camera.position.x = 0;
     this._camera.position.y = 0;
     this._camera.updateProjectionMatrix();
     this._materialArray = materials.getMaterialArray();
+    this._map = map;
   }
 
-  /**
-   *
-   * @private
-   */
-  _reorientChunks() {
+  reorientChunks() {
     const chunksWide = this.chunksWide();
     const chunks = this._chunks;
     const chunkCount = chunks.length;
     const sceneHeight = this._sceneDimensions.height;
+    const materials = this._materialArray;
+    const map = this._map;
     for (let i = 0; i < chunkCount; i++) {
       const x = i % chunksWide;
       const y = Math.floor(i / chunksWide);
-      chunks[i].setSceneLocation(x, y, sceneHeight);
+      chunks[i].update(map, materials).setSceneLocation(x, y, sceneHeight);
     }
   }
 
@@ -111,77 +118,67 @@ export default class ChunkRenderer {
     this._sceneDimensions.width = chunksWide * CHUNK_PIXEL_LENGTH;
     this._sceneDimensions.height = chunksHigh * CHUNK_PIXEL_LENGTH;
 
-    if (oldChunkCount === newChunkCount) {
-      return;
-    }
+    if (oldChunkCount !== newChunkCount) {
+      const difference = Math.abs(oldChunkCount - newChunkCount);
 
-    const difference = Math.abs(oldChunkCount - newChunkCount);
+      if (oldChunkCount > newChunkCount) {
+        // trash old chunks
+        for (let i = newChunkCount; i < oldChunkCount; i++) {
+          parentScene.remove(this._chunks[i].getMesh());
+          this._chunks[i].dispose();
+        }
 
-    console.time(`windowResized()`);
+        this._chunks.splice(newChunkCount, difference);
 
-    if (oldChunkCount > newChunkCount) {
-      // trash old chunks
-      for (let i = newChunkCount; i < oldChunkCount; i++) {
-        parentScene.remove(this._chunks[i].getMesh());
-        this._chunks[i].dispose();
+        console.log("Destroyed", difference, "chunks (", newChunkCount, ")");
+      } else {
+        for (let i = oldChunkCount; i < newChunkCount; i++) {
+          const newChunk = new Chunk();
+          this._chunks.push(newChunk);
+          parentScene.add(newChunk.getMesh());
+        }
+        console.log("Created", difference, "chunks (", newChunkCount, ")");
       }
-
-      this._chunks.splice(newChunkCount, difference);
-      this._reorientChunks();
-
-      // reorient new chunks
-      console.timeEnd("windowResized()");
-      console.log("Destroyed", difference, "chunks (", newChunkCount, ")");
-      return;
     }
 
-    for (let i = oldChunkCount; i < newChunkCount; i++) {
-      const newChunk = new Chunk();
-      this._chunks.push(newChunk);
-      parentScene.add(newChunk.getMesh());
+    const { x, y } = this._topLeftChunkCoordinate;
+
+    if (x >= 0 && y >= 0) {
+      this.setLeftTop(x, y);
     }
-
-    this._reorientChunks();
-
-    console.timeEnd("windowResized()");
-    console.log("Created", difference, "chunks (", newChunkCount, ")");
   }
 
   /**
    *
    * @param left {number} the X index of the start chunk
    * @param top {number} the Y index of the start chunk
-   * @param map {Int16Array}
    */
-  setLeftTop(left, top, map) {
+  setLeftTop(left, top) {
     const chunksWide = this.chunksWide();
     const chunksHigh = this.chunksHigh();
     const total = chunksWide * chunksHigh;
     const timer = `setLeftTop(${left}, ${top}) : ${total}`;
     console.time(timer);
 
-    const materials = this._materialArray;
-
     let idx = 0;
     for (let y = top; y < top + chunksHigh; y++) {
       for (let x = left; x < left + chunksWide; x++) {
-        this._chunks[idx++].update(x, y, map, materials);
+        this._chunks[idx++].setChunkCoordinates(x, y);
       }
     }
 
     this._topLeftChunkCoordinate.left = left;
     this._topLeftChunkCoordinate.top = top;
-    this._reorientChunks();
+    this.reorientChunks();
 
     console.timeEnd(timer);
   }
 
   /**
    *
-   * @param map {Int16Array}
    * @returns {boolean} True if the pan happened
    */
-  panUp(map) {
+  panUp() {
     const newTop = this._topLeftChunkCoordinate.top - 1;
 
     if (newTop < 0) {
@@ -190,7 +187,6 @@ export default class ChunkRenderer {
 
     const chunksWide = this.chunksWide();
     const chunksHigh = this.chunksHigh();
-    const materials = this._materialArray;
     const left = this._topLeftChunkCoordinate.left;
 
     const start = chunksWide * (chunksHigh - 1);
@@ -198,22 +194,20 @@ export default class ChunkRenderer {
     // select the last row
     const temp = this._chunks.splice(start, chunksWide);
     for (let x = 0; x < chunksWide; x++) {
-      temp[x].update(left + x, newTop, map, materials);
+      temp[x].setChunkCoordinates(left + x, newTop);
     }
 
     this._chunks = temp.concat(this._chunks);
     this._topLeftChunkCoordinate.top = newTop;
-    this._reorientChunks();
 
     return true;
   }
 
   /**
    *
-   * @param map {Int16Array}
    * @returns {boolean} True if the pan happened
    */
-  panDown(map) {
+  panDown() {
     const newTop = this._topLeftChunkCoordinate.top + 1;
 
     if (newTop + this.chunksHigh() >= MAP_CHUNKS_HIGH) {
@@ -221,29 +215,26 @@ export default class ChunkRenderer {
     }
 
     const chunksWide = this.chunksWide();
-    const materials = this._materialArray;
     const left = this._topLeftChunkCoordinate.left;
 
     // Select the first row
     const temp = this._chunks.splice(0, chunksWide);
     const bottom = newTop + this.chunksHigh() - 1;
     for (let x = 0; x < chunksWide; x++) {
-      temp[x].update(left + x, bottom, map, materials);
+      temp[x].setChunkCoordinates(left + x, bottom);
     }
 
     this._chunks = this._chunks.concat(temp);
     this._topLeftChunkCoordinate.top = newTop;
-    this._reorientChunks();
 
     return true;
   }
 
   /**
    *
-   * @param map {Int16Array}
    * @returns {boolean} True if the pan happened
    */
-  panRight(map) {
+  panRight() {
     const chunksWide = this.chunksWide();
     const newLeft = this._topLeftChunkCoordinate.left + 1;
 
@@ -252,31 +243,28 @@ export default class ChunkRenderer {
     }
 
     const chunksHigh = this.chunksHigh();
-    const materials = this._materialArray;
     const top = this._topLeftChunkCoordinate.top;
     const chunks = this._chunks;
     const right = newLeft + chunksWide - 1;
 
     for (let y = 0; y < chunksHigh; y++) {
       const idx = y * chunksWide;
-      const temp = chunks[idx].update(right, top + y, map, materials);
+      const temp = chunks[idx].setChunkCoordinates(right, top + y);
 
       chunks.splice(idx, 1);
       chunks.splice(idx + (chunksWide - 1), 0, temp);
     }
 
     this._topLeftChunkCoordinate.left = newLeft;
-    this._reorientChunks();
 
     return true;
   }
 
   /**
    *
-   * @param map {Int16Array}
    * @returns {boolean} True if the pan happened
    */
-  panLeft(map) {
+  panLeft() {
     const newLeft = this._topLeftChunkCoordinate.left - 1;
 
     if (newLeft < 0) {
@@ -285,21 +273,19 @@ export default class ChunkRenderer {
 
     const chunksWide = this.chunksWide();
     const chunksHigh = this.chunksHigh();
-    const materials = this._materialArray;
     const top = this._topLeftChunkCoordinate.top;
 
     const chunks = this._chunks;
 
     for (let y = 0; y < chunksHigh; y++) {
       const idx = y * chunksWide + (chunksWide - 1);
-      const temp = chunks[idx].update(newLeft, top + y, map, materials);
+      const temp = chunks[idx].setChunkCoordinates(newLeft, top + y);
 
       chunks.splice(idx, 1);
       chunks.splice(y * chunksWide, 0, temp);
     }
 
     this._topLeftChunkCoordinate.left = newLeft;
-    this._reorientChunks();
 
     return true;
   }

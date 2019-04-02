@@ -94,6 +94,13 @@ export default class Chunk {
 
   /**
    *
+   * @type {{x: number, y: number}}
+   * @private
+   */
+  _targetMapLocation = { x: -1, y: -1 };
+
+  /**
+   *
    * @type {boolean}
    * @private
    */
@@ -121,22 +128,19 @@ export default class Chunk {
 
   /**
    *
-   * @param startChunkX {number}
-   * @param startChunkY {number}
    * @param map {Int16Array}
    * @param materials {SpriteMaterial[]}
    * @return {Chunk}
    */
-  update(startChunkX, startChunkY, map, materials) {
-    if (
-      this._currentMapLocation.x === startChunkX &&
-      this._currentMapLocation.y === startChunkY
-    ) {
+  update(map, materials) {
+    const { x, y } = this._targetMapLocation;
+
+    if (this._currentMapLocation.x === x && this._currentMapLocation.y === y) {
       return this;
     }
 
-    const tileStartY = startChunkY * (MAP_TILES_WIDE * CHUNK_TILE_LENGTH);
-    const tileStartX = startChunkX * CHUNK_TILE_LENGTH;
+    const tileStartY = x * (MAP_TILES_WIDE * CHUNK_TILE_LENGTH);
+    const tileStartX = y * CHUNK_TILE_LENGTH;
     const sprites = this._sprites;
 
     let mapIdx;
@@ -153,9 +157,21 @@ export default class Chunk {
       }
     }
 
-    this._currentMapLocation.x = startChunkX;
-    this._currentMapLocation.y = startChunkY;
+    this._currentMapLocation.x = x;
+    this._currentMapLocation.y = y;
 
+    return this;
+  }
+
+  /**
+   *
+   * @param x {number}
+   * @param y {number}
+   * @return {Chunk}
+   */
+  setChunkCoordinates(x, y) {
+    this._targetMapLocation.x = x;
+    this._targetMapLocation.y = y;
     return this;
   }
 
