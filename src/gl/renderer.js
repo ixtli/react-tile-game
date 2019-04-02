@@ -4,11 +4,9 @@ import { listenForKeydown, stopListeningForKeydown } from "./keydown";
 import ChunkRenderer from "./map/map-chunk-renderer";
 import {
   CHUNK_PIXEL_LENGTH,
-  CHUNK_TILE_LENGTH,
-  MAP_PIXELS_HIGH,
-  MAP_PIXELS_WIDE,
+  CHUNK_TILE_LENGTH, MAP_CHUNKS_WIDE,
   MAP_TILES_HIGH,
-  MAP_TILES_WIDE
+  MAP_TILES_WIDE, TILE_PIXEL_LENGTH
 } from "../config";
 import { stats } from "../util/stats-wrapper";
 import { getWebGLContextFromCanvas } from "../util/compatability";
@@ -33,7 +31,8 @@ export default class Renderer {
    * @type {Object.<String, *>}
    */
   static RENDERER_OPTIONS = {
-    stencil: false
+    stencil: false,
+    antialias: false
   };
 
   /**
@@ -124,7 +123,7 @@ export default class Renderer {
    * @type {{x: number, y: number}}
    * @private
    */
-  _cameraWorldPixel = { x: 0, y: 0 };
+  _cameraWorldTile = { x: 0, y: 0 };
 
   /**
    *
@@ -301,17 +300,17 @@ export default class Renderer {
     }
   };
 
-  centerCameraOnWorldPixel(x, y) {
+  centerCameraOnTile(x, y) {
     console.assert(x >= 0);
     console.assert(y >= 0);
-    console.assert(x < MAP_PIXELS_WIDE);
-    console.assert(y < MAP_PIXELS_HIGH);
+    console.assert(x < MAP_TILES_WIDE);
+    console.assert(y < MAP_TILES_HIGH);
 
     // What chunk in the map is (x,y) in?
-    const chunkX = Math.floor(x / CHUNK_PIXEL_LENGTH);
-    const chunkY = Math.floor(y / CHUNK_PIXEL_LENGTH);
+    const chunkX = Math.floor(x / CHUNK_TILE_LENGTH);
+    const chunkY = Math.floor(y / CHUNK_TILE_LENGTH);
 
-    console.debug(`Camera moved to ${x}, ${y} (chunk ${chunkX}, ${chunkY}).`);
+    console.debug(`Camera moved to (${x}, ${y}) (chunk ${chunkX}, ${chunkY}).`);
 
     const sceneChunksWide = this._chunkRenderer.chunksWide();
     const sceneChunksHigh = this._chunkRenderer.chunksHigh();
@@ -319,33 +318,38 @@ export default class Renderer {
     // This represents the top left of the view into the map
     const left = Math.min(
       Math.max(0, chunkX - Math.floor(sceneChunksWide / 2)),
-      sceneChunksWide
+      MAP_CHUNKS_WIDE
     );
 
     const top = Math.min(
       Math.max(0, chunkY - Math.floor(sceneChunksHigh / 2)),
-      sceneChunksHigh
+      MAP_TILES_HIGH
     );
 
-    this._chunkRenderer.setLeftTop(left, top, this._map);
+    this._chunkRenderer.setLeftTop(left, top);
 
     this._cameraDeltaX = 0;
     this._cameraDeltaY = 0;
-    this._cameraWorldPixel.x = x;
-    this._cameraWorldPixel.y = y;
+    this._cameraWorldTile.x = x;
+    this._cameraWorldTile.y = y;
 
     // @TODO: This needs to put the center of the camera over the pixel (x,y)
     // translate the world space into screen space
-    // const sceneLeft = x - left * CHUNK_PIXEL_LENGTH;
-    // const sceneTop = top * CHUNK_PIXEL_LENGTH - y;
-    // this._camera.position.x = sceneLeft - Math.round(this.width() / 2);
-    // this._camera.position.y = sceneTop - Math.round(this.height() / 2);
+    const worldPixelX = x * TILE_PIXEL_LENGTH;
+    const worldPixelY = y * TILE_PIXEL_LENGTH;
+    const sceneX = worldPixelX - left * CHUNK_PIXEL_LENGTH;
+    const sceneY = worldPixelY - top * CHUNK_PIXEL_LENGTH;
+    this._camera.position.x = sceneX - Math.round(this.width() / 2);
+    this._camera.position.y = sceneY - Math.round(this.height() / 2);
   }
 
   start() {
     listenForResize(this.name(), this.resize);
     listenForKeydown(this.name(), this.keydown);
-    this.centerCameraOnWorldPixel(MAP_PIXELS_WIDE / 2, MAP_PIXELS_WIDE / 2);
+
+    const midX = Math.floor(MAP_TILES_WIDE / 2);
+    const midY = Math.floor(MAP_TILES_HIGH / 2);
+    this.centerCameraOnTile(midX, midY);
     this._rendering = true;
     this._renderer.setAnimationLoop(this.render);
   }
@@ -362,10 +366,10 @@ export default class Renderer {
     this._camera.position.y += dY;
     this._cameraDeltaX = 0;
     this._cameraDeltaY = 0;
-    this._cameraWorldPixel.x += Math.floor(dX);
+    this._cameraWorldTile.x += Math.floor(dX);
     // This really is absurd:
     // noinspection JSSuspiciousNameCombination
-    this._cameraWorldPixel.y += Math.floor(dY);
+    this._cameraWorldTile.y += Math.floor(dY);
 
     let delta = false;
     if (this._camera.position.y > this._panBoundary.top) {
