@@ -13,8 +13,6 @@ export default class Chunk {
 
   static MATERIAL_OPTIONS = {
     blending: THREE.NoBlending,
-    depthTest: false,
-    depthWrite: false,
     side: THREE.FrontSide
   };
 
@@ -108,6 +106,7 @@ export default class Chunk {
 
   constructor() {
     this._texture.texture.generateMipmaps = false;
+    this._mesh.position.z = 0;
     this._fill();
   }
 

@@ -4,9 +4,11 @@ import { listenForKeydown, stopListeningForKeydown } from "./keydown";
 import ChunkRenderer from "./map/map-chunk-renderer";
 import {
   CHUNK_PIXEL_LENGTH,
-  CHUNK_TILE_LENGTH, MAP_CHUNKS_WIDE,
+  CHUNK_TILE_LENGTH,
+  MAP_CHUNKS_WIDE,
   MAP_TILES_HIGH,
-  MAP_TILES_WIDE, TILE_PIXEL_LENGTH
+  MAP_TILES_WIDE,
+  TILE_PIXEL_LENGTH
 } from "../config";
 import { stats } from "../util/stats-wrapper";
 import { getWebGLContextFromCanvas } from "../util/compatability";
@@ -141,6 +143,13 @@ export default class Renderer {
 
   /**
    *
+   * @type {Mesh}
+   * @private
+   */
+  _tileHighlighter = null;
+
+  /**
+   *
    * @param canvas {HTMLCanvasElement}
    */
   constructor(canvas) {
@@ -163,6 +172,20 @@ export default class Renderer {
     for (let i = 0; i < count; i += 1) {
       this._tileMaterials.greenTile(i / count);
     }
+
+    const geom = new THREE.PlaneBufferGeometry(
+      TILE_PIXEL_LENGTH,
+      TILE_PIXEL_LENGTH
+    );
+    const material = new THREE.MeshBasicMaterial({
+      color: 0xffff00,
+      opacity: 0.85,
+      transparent: true,
+      side: THREE.FrontSide
+    });
+    this._tileHighlighter = new THREE.Mesh(geom, material);
+    this._tileHighlighter.position.set(0, 0, 2);
+    this._scene.add(this._tileHighlighter);
   }
 
   /**
@@ -341,6 +364,11 @@ export default class Renderer {
     const sceneY = worldPixelY - top * CHUNK_PIXEL_LENGTH;
     this._camera.position.x = sceneX - Math.round(this.width() / 2);
     this._camera.position.y = sceneY - Math.round(this.height() / 2);
+
+    this._tileHighlighter.position.x =
+      sceneX - Math.floor(TILE_PIXEL_LENGTH / 2);
+    this._tileHighlighter.position.y =
+      sceneY + Math.floor(TILE_PIXEL_LENGTH / 2);
   }
 
   start() {
@@ -353,6 +381,8 @@ export default class Renderer {
     this._rendering = true;
     this._renderer.setAnimationLoop(this.render);
   }
+
+  selectTile() {}
 
   _applyCameraDelta() {
     const dX = this._cameraDeltaX;
