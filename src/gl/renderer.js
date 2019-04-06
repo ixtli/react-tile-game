@@ -13,6 +13,7 @@ import {
 import { stats } from "../util/stats-wrapper";
 import { getWebGLContextFromCanvas } from "../util/compatability";
 import { TileMaterialManager } from "./tile-materials-manager";
+import * as TWEEN from "@tweenjs/tween.js";
 
 export default class Renderer {
   /**
@@ -305,18 +306,37 @@ export default class Renderer {
       offsetY
     );
 
-    const { worldTileX, worldTileY } = this.worldTileForSceneCoordinate(
-      sceneX,
-      sceneY
-    );
-
-    // noinspection JSSuspiciousNameCombination
     console.log(
       "Picked tile:",
-      Math.floor(worldTileX),
-      ",",
-      Math.floor(worldTileY)
+      this.worldTileForSceneCoordinate(sceneX, sceneY)
     );
+
+    const coords = {
+      x: this._camera.position.x,
+      y: this._camera.position.y
+    };
+
+    const tileCenterX =
+      sceneX - (sceneX % TILE_PIXEL_LENGTH) + TILE_PIXEL_LENGTH / 2;
+    const tileCenterY =
+      sceneY - (sceneY % TILE_PIXEL_LENGTH) + TILE_PIXEL_LENGTH / 2;
+
+    const to = {
+      x: tileCenterX - this.width() / 2,
+      y: tileCenterY - this.height() / 2
+    };
+    const last = { ...coords };
+
+    new TWEEN.Tween(coords)
+      .to(to, 1000)
+      .easing(TWEEN.Easing.Quadratic.Out)
+      .onUpdate(() => {
+        this._cameraDelta.x += coords.x - last.x;
+        this._cameraDelta.y += coords.y - last.y;
+        last.x = coords.x;
+        last.y = coords.y;
+      })
+      .start();
   };
 
   /**
@@ -720,14 +740,19 @@ export default class Renderer {
    * Basically the boilerplate to set up the scene and call render() on the
    * Three.JS renderer. This function shouldn't be called directly and should
    * instead be passed to WebGLRenderer#setAntimationLoop
+   *
+   * @param time {number} The current frame time
    */
-  render = () => {
+  render = time => {
     if (!this._rendering) {
       this._renderer.setAnimationLoop(null);
       console.log("Rendering stopped.");
     }
 
     stats.begin();
+
+    // noinspection JSUnresolvedFunction
+    TWEEN.update(time);
 
     this._applyCameraDelta();
     this._chunkRenderer.update(this._renderer);

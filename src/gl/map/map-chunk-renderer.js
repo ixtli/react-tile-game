@@ -196,6 +196,9 @@ export default class ChunkRenderer {
   }
 
   /**
+   * Pan the map up by one chunk and mark those chunks as having new
+   * coordinates. This does not do the work to redraw them: you must call
+   * ChunkRenderer#reorientChunks() for that.
    *
    * @returns {boolean} True if the pan happened
    */
@@ -225,6 +228,9 @@ export default class ChunkRenderer {
   }
 
   /**
+   * Pan the map down by one chunk and mark those chunks as having new
+   * coordinates. This does not do the work to redraw them: you must call
+   * ChunkRenderer#reorientChunks() for that.
    *
    * @returns {boolean} True if the pan happened
    */
@@ -253,6 +259,9 @@ export default class ChunkRenderer {
   }
 
   /**
+   * Pan the map right by one chunk and mark those chunks as having new
+   * coordinates. This does not do the work to redraw them: you must call
+   * ChunkRenderer#reorientChunks() for that.
    *
    * @returns {boolean} True if the pan happened
    */
@@ -286,6 +295,9 @@ export default class ChunkRenderer {
   }
 
   /**
+   * Pan the map left by one chunk and mark those chunks as having new
+   * coordinates. This does not do the work to redraw them: you must call
+   * ChunkRenderer#reorientChunks() for that.
    *
    * @returns {boolean} True if the pan happened
    */
