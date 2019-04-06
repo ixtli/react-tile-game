@@ -200,6 +200,13 @@ export default class Renderer {
   _backgroundColor = new THREE.Color(0x51669a);
 
   /**
+   *
+   * @type {Tween}
+   * @private
+   */
+  _cameraTween = null;
+
+  /**
    * Constructs the renderer.
    * @TODO: Nothing should really happen here except the renderer construction.
    *
@@ -263,6 +270,7 @@ export default class Renderer {
 
   _mouseMoveHandler = ({ offsetX, offsetY }) => {
     if (this._mouseDownLocation && this._allowMapDragWithMouse) {
+      this.stopCurrentCameraTween();
       this._cameraDelta.x += this._mouseDownLocation.x - offsetX;
       this._cameraDelta.y += offsetY - this._mouseDownLocation.y;
       this._mouseDownLocation.x = offsetX;
@@ -311,11 +319,6 @@ export default class Renderer {
       this.worldTileForSceneCoordinate(sceneX, sceneY)
     );
 
-    const coords = {
-      x: this._camera.position.x,
-      y: this._camera.position.y
-    };
-
     const tileCenterX =
       sceneX - (sceneX % TILE_PIXEL_LENGTH) + TILE_PIXEL_LENGTH / 2;
     const tileCenterY =
@@ -325,11 +328,38 @@ export default class Renderer {
       x: tileCenterX - this.width() / 2,
       y: tileCenterY - this.height() / 2
     };
+
+    this.tweenCameraToSceneCoordinate(to);
+  };
+
+  stopCurrentCameraTween() {
+    if (this._cameraTween) {
+      this._cameraTween.stop();
+      this._cameraTween = null;
+    }
+  }
+
+  /**
+   *
+   * @param to {{x: number, y: number}}
+   * @param easing {?TWEEN.Easing}
+   */
+  tweenCameraToSceneCoordinate(to, easing) {
+    this._cameraDelta.x = 0;
+    this._cameraDelta.y = 0;
+
+    this.stopCurrentCameraTween();
+
+    const coords = {
+      x: this._camera.position.x,
+      y: this._camera.position.y
+    };
+
     const last = { ...coords };
 
-    new TWEEN.Tween(coords)
+    this._cameraTween = new TWEEN.Tween(coords)
       .to(to, 1000)
-      .easing(TWEEN.Easing.Quadratic.Out)
+      .easing(easing ? easing : TWEEN.Easing.Quadratic.Out)
       .onUpdate(() => {
         this._cameraDelta.x += coords.x - last.x;
         this._cameraDelta.y += coords.y - last.y;
@@ -337,7 +367,7 @@ export default class Renderer {
         last.y = coords.y;
       })
       .start();
-  };
+  }
 
   /**
    * Register all event listeners
@@ -478,38 +508,41 @@ export default class Renderer {
    * @param key {string} The key pressed.
    */
   keydown = key => {
+    let cy = 0;
+    let cx = 0;
+
     switch (key) {
       case "8":
       case "w":
-        this._cameraDelta.y += Renderer.KEY_JUMP_SIZE;
+        cy += Renderer.KEY_JUMP_SIZE;
         break;
       case "2":
       case "s":
-        this._cameraDelta.y -= Renderer.KEY_JUMP_SIZE;
+        cy -= Renderer.KEY_JUMP_SIZE;
         break;
       case "4":
       case "a":
-        this._cameraDelta.x -= Renderer.KEY_JUMP_SIZE;
+        cx -= Renderer.KEY_JUMP_SIZE;
         break;
       case "6":
       case "d":
-        this._cameraDelta.x += Renderer.KEY_JUMP_SIZE;
+        cx += Renderer.KEY_JUMP_SIZE;
         break;
       case "7":
-        this._cameraDelta.y += Renderer.KEY_JUMP_SIZE;
-        this._cameraDelta.x -= Renderer.KEY_JUMP_SIZE;
+        cy += Renderer.KEY_JUMP_SIZE;
+        cx -= Renderer.KEY_JUMP_SIZE;
         break;
       case "9":
-        this._cameraDelta.y += Renderer.KEY_JUMP_SIZE;
-        this._cameraDelta.x += Renderer.KEY_JUMP_SIZE;
+        cy += Renderer.KEY_JUMP_SIZE;
+        cx += Renderer.KEY_JUMP_SIZE;
         break;
       case "1":
-        this._cameraDelta.y -= Renderer.KEY_JUMP_SIZE;
-        this._cameraDelta.x -= Renderer.KEY_JUMP_SIZE;
+        cy -= Renderer.KEY_JUMP_SIZE;
+        cx -= Renderer.KEY_JUMP_SIZE;
         break;
       case "3":
-        this._cameraDelta.y -= Renderer.KEY_JUMP_SIZE;
-        this._cameraDelta.x += Renderer.KEY_JUMP_SIZE;
+        cy -= Renderer.KEY_JUMP_SIZE;
+        cx += Renderer.KEY_JUMP_SIZE;
         break;
       case " ":
         this.toggleRendering();
@@ -517,6 +550,12 @@ export default class Renderer {
       default:
         console.debug("Unhandled key", key);
         break;
+    }
+
+    if (cx || cy) {
+      this.stopCurrentCameraTween();
+      this._cameraDelta.x += cx;
+      this._cameraDelta.y += cy;
     }
   };
 
