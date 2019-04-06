@@ -254,6 +254,12 @@ export default class Renderer {
     this._scene.add(this._tileSelector);
   }
 
+  windowOffsetToSceneCoordinate(offsetX, offsetY) {
+    const sceneX = this._camera.position.x + offsetX;
+    const sceneY = this._camera.position.y + this.height() - offsetY;
+    return { sceneX, sceneY };
+  }
+
   _mouseMoveHandler = ({ offsetX, offsetY }) => {
     if (this._mouseDownLocation && this._allowMapDragWithMouse) {
       this._cameraDelta.x += this._mouseDownLocation.x - offsetX;
@@ -263,8 +269,11 @@ export default class Renderer {
       return;
     }
 
-    const sceneX = this._camera.position.x + offsetX;
-    const sceneY = this._camera.position.y + this.height() - offsetY;
+    const { sceneX, sceneY } = this.windowOffsetToSceneCoordinate(
+      offsetX,
+      offsetY
+    );
+
     this._tileHighlighter.position.x =
       sceneX - (sceneX % TILE_PIXEL_LENGTH) + Math.floor(TILE_PIXEL_LENGTH / 2);
     this._tileHighlighter.position.y =
@@ -280,12 +289,28 @@ export default class Renderer {
   };
 
   _clickHandler = ({ offsetX, offsetY }) => {
-    const sceneX = this._camera.position.x + offsetX;
-    const sceneY = this._camera.position.y + this.height() - offsetY;
+    const { sceneX, sceneY } = this.windowOffsetToSceneCoordinate(
+      offsetX,
+      offsetY
+    );
     this._tileSelector.position.x =
       sceneX - (sceneX % TILE_PIXEL_LENGTH) + Math.floor(TILE_PIXEL_LENGTH / 2);
     this._tileSelector.position.y =
       sceneY - (sceneY % TILE_PIXEL_LENGTH) + Math.floor(TILE_PIXEL_LENGTH / 2);
+  };
+
+  _doubleClickHandler = ({ offsetX, offsetY }) => {
+    const { sceneX, sceneY } = this.windowOffsetToSceneCoordinate(
+      offsetX,
+      offsetY
+    );
+
+    const { worldTileX, worldTileY } = this.worldTileForSceneCoordinate(
+      sceneX,
+      sceneY
+    );
+
+    console.log("Picked tile:", worldTileX, ",", worldTileY);
   };
 
   /**
@@ -296,6 +321,7 @@ export default class Renderer {
     this._canvas.addEventListener("mousedown", this._mouseDownHandler);
     this._canvas.addEventListener("mouseup", this._mouseUpHandler);
     this._canvas.addEventListener("click", this._clickHandler);
+    this._canvas.addEventListener("dblclick", this._doubleClickHandler);
   }
 
   /**
@@ -305,7 +331,7 @@ export default class Renderer {
     this._canvas.removeEventListener("mousemove", this._mouseMoveHandler);
     this._canvas.removeEventListener("mousedown", this._mouseDownHandler);
     this._canvas.removeEventListener("mouseup", this._mouseUpHandler);
-    this._canvas.removeEventListener("click", this._clickHandler);
+    this._canvas.removeEventListener("dblclick", this._doubleClickHandler);
   }
 
   /**
@@ -468,6 +494,7 @@ export default class Renderer {
 
   /**
    * Center the camera on a world map tile (x, y)
+   *
    * @param x {number}
    * @param y {number}
    */
@@ -481,12 +508,11 @@ export default class Renderer {
     const chunkX = Math.floor(x / CHUNK_TILE_LENGTH);
     const chunkY = Math.floor(y / CHUNK_TILE_LENGTH);
 
-    console.debug(`Camera moved to (${x}, ${y}) (chunk ${chunkX}, ${chunkY}).`);
-
     const sceneChunksWide = this._chunkRenderer.chunksWide();
     const sceneChunksHigh = this._chunkRenderer.chunksHigh();
 
-    // This represents the top left of the view into the map
+    // Find the (left, top) chunk such that the pixel we're trying to center on
+    // is in the middle of the scene.
     const left = Math.min(
       Math.max(0, chunkX - Math.floor(sceneChunksWide / 2)),
       MAP_CHUNKS_WIDE
@@ -499,25 +525,28 @@ export default class Renderer {
 
     this._chunkRenderer.setLeftTop(left, top);
 
+    // This function is a camera movement
     this._cameraDelta.x = 0;
     this._cameraDelta.y = 0;
+
+    // Set the world tile that the camera is looking at
     this._cameraWorldTile.x = x;
     this._cameraWorldTile.y = y;
 
-    // translate the world space into screen space
-    const { sceneX, sceneY } = this.sceneCoordinateForWorldCoordinate(x, y);
+    // Place the camera
+    const { sceneX, sceneY } = this.sceneCoordinateForWorldTile(x, y);
     this._camera.position.x = sceneX - Math.round(this.width() / 2);
     this._camera.position.y = sceneY - Math.round(this.height() / 2);
   }
 
   /**
-   * Return scene X / Y coordinates for a world tile coordinate
+   * Return scene (x,y) pixel coordinates for a world tile coordinate
    *
    * @param x {number}
    * @param y {number}
    * @return {{sceneY: number, sceneX: number}}
    */
-  sceneCoordinateForWorldCoordinate(x, y) {
+  sceneCoordinateForWorldTile(x, y) {
     const left = this._chunkRenderer.left();
     const top = this._chunkRenderer.top();
     const worldPixelX = x * TILE_PIXEL_LENGTH;
@@ -525,6 +554,22 @@ export default class Renderer {
     const sceneX = worldPixelX - left * CHUNK_PIXEL_LENGTH;
     const sceneY = worldPixelY - top * CHUNK_PIXEL_LENGTH;
     return { sceneX, sceneY };
+  }
+
+  /**
+   * Return a world tile coordinate (as a float) for a scene pixel coordinate.
+   *
+   * @param sceneX {number}
+   * @param sceneY {number}
+   * @return {{worldTileX: number, worldTileY: number}}
+   */
+  worldTileForSceneCoordinate(sceneX, sceneY) {
+    const left = this._chunkRenderer.left() * CHUNK_PIXEL_LENGTH;
+    const top = this._chunkRenderer.top() * CHUNK_PIXEL_LENGTH;
+    const worldTileX = (sceneX + left) / TILE_PIXEL_LENGTH;
+    const invert = this._chunkRenderer.sceneDimensions().height - sceneY;
+    const worldTileY = (invert + top) / TILE_PIXEL_LENGTH;
+    return { worldTileX, worldTileY };
   }
 
   /**
