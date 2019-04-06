@@ -16,6 +16,7 @@ import { TileMaterialManager } from "./tile-materials-manager";
 
 export default class Renderer {
   /**
+   * The total amount of renderers.
    *
    * @type {number}
    * @private
@@ -23,12 +24,14 @@ export default class Renderer {
   static _rendererCount = 0;
 
   /**
+   * The amount of pixels to jump when a panning key is hit.
    *
    * @type {number}
    */
   static KEY_JUMP_SIZE = 32;
 
   /**
+   * The WebGLRenderer options
    *
    * @type {Object.<String, *>}
    */
@@ -38,6 +41,7 @@ export default class Renderer {
   };
 
   /**
+   * Our rendered scene, displayed to the player.
    *
    * @type {Scene}
    * @private
@@ -45,6 +49,7 @@ export default class Renderer {
   _scene = new THREE.Scene();
 
   /**
+   * The camera used to render this scene (initialized later.)
    *
    * @type {OrthographicCamera}
    * @private
@@ -52,6 +57,7 @@ export default class Renderer {
   _camera = new THREE.OrthographicCamera(1, 1, 1, 1, 0, 1);
 
   /**
+   * Our renderer index, among the total global renderers.
    *
    * @type {number}
    * @private
@@ -59,6 +65,8 @@ export default class Renderer {
   _index = Renderer._rendererCount++;
 
   /**
+   * Whether or not we should draw frames. Note that after this is changed from
+   * {true} to {false} you need to call startRendering()
    *
    * @type {boolean}
    * @private
@@ -66,18 +74,12 @@ export default class Renderer {
   _rendering = false;
 
   /**
+   * The amount the camera should move on the X, Y plane before next frame.
    *
-   * @type {number}
+   * @type {{x: number, y: number}}
    * @private
    */
-  _cameraDeltaX = 0;
-
-  /**
-   *
-   * @type {number}
-   * @private
-   */
-  _cameraDeltaY = 0;
+  _cameraDelta = { x: 0, y: 0 };
 
   /**
    *
@@ -155,6 +157,13 @@ export default class Renderer {
 
   /**
    *
+   * @type {number}
+   * @private
+   */
+  _distanceAllowedToPanOffMap = TILE_PIXEL_LENGTH * 2;
+
+  /**
+   *
    * @type {Mesh}
    * @private
    */
@@ -175,6 +184,8 @@ export default class Renderer {
   _mouseDownLocation = null;
 
   /**
+   * Constructs the renderer.
+   * @TODO: Nothing should really happen here except the renderer construction.
    *
    * @param canvas {HTMLCanvasElement}
    */
@@ -188,17 +199,17 @@ export default class Renderer {
     });
 
     this._renderer.setPixelRatio(window.devicePixelRatio);
+    this._camera.position.z = 100;
 
     // @TODO: Is this faster?
     // this._renderer.autoClear = true;
-
-    this._camera.position.set(0, 0, 100);
 
     const count = 9;
     for (let i = 0; i < count; i += 1) {
       this._tileMaterials.greenTile(i / count);
     }
 
+    // @TODO: Move this away from here.
     const geom = new THREE.PlaneBufferGeometry(
       TILE_PIXEL_LENGTH,
       TILE_PIXEL_LENGTH
@@ -216,8 +227,8 @@ export default class Renderer {
 
   _mouseMoveHandler = ({ offsetX, offsetY }) => {
     if (this._mouseDownLocation && this._allowMapDragWithMouse) {
-      this._cameraDeltaX += this._mouseDownLocation.x - offsetX;
-      this._cameraDeltaY += offsetY - this._mouseDownLocation.y;
+      this._cameraDelta.x += this._mouseDownLocation.x - offsetX;
+      this._cameraDelta.y += offsetY - this._mouseDownLocation.y;
       this._mouseDownLocation.x = offsetX;
       this._mouseDownLocation.y = offsetY;
       return;
@@ -239,12 +250,18 @@ export default class Renderer {
     this._mouseDownLocation = null;
   };
 
+  /**
+   * Register all event listeners
+   */
   listenForMouseEvents() {
     this._canvas.addEventListener("mousemove", this._mouseMoveHandler);
     this._canvas.addEventListener("mousedown", this._mouseDownHandler);
     this._canvas.addEventListener("mouseup", this._mouseUpHandler);
   }
 
+  /**
+   * De-register all mouse event listeners
+   */
   stopListeningForMouseEvents() {
     this._canvas.removeEventListener("mousemove", this._mouseMoveHandler);
     this._canvas.removeEventListener("mousedown", this._mouseDownHandler);
@@ -252,6 +269,8 @@ export default class Renderer {
   }
 
   /**
+   * Theoretically you could have multiple of these objects so give them a semi-
+   * unique name.
    *
    * @return {string}
    */
@@ -288,6 +307,8 @@ export default class Renderer {
   }
 
   /**
+   * Resizes the scene. A very computationally intensive procedure so it must be
+   * debounced.
    *
    * @param width {number}
    * @param height {number}
@@ -302,6 +323,7 @@ export default class Renderer {
     this._camera.far = 2000;
     this._camera.updateProjectionMatrix();
 
+    // Resize the chunks themselves.
     this._chunkRenderer.windowResized(width, height, this._scene);
 
     // How far the camera can move from the center of the scene before chunks
@@ -313,21 +335,34 @@ export default class Renderer {
     this._panBoundary.left = 0;
     this._panBoundary.right = sceneDimensions.width - width;
 
-    const boundary = 2 * TILE_PIXEL_LENGTH;
+    // Resize the boundary away from which you're allowed to pan off the maps
+    // edges.
+    const boundary = this._distanceAllowedToPanOffMap;
     this._offMapBoundary.left = -boundary;
     this._offMapBoundary.right = sceneDimensions.width - (width - boundary);
     this._offMapBoundary.top = sceneDimensions.height - (height - boundary);
     this._offMapBoundary.bottom = -boundary;
   };
 
+  /**
+   * The width of the rendered area in pixels.
+   * @return {number}
+   */
   width() {
     return this._camera.right;
   }
 
+  /**
+   * The height of the rendered area in pixels.
+   * @return {number}
+   */
   height() {
     return this._camera.top;
   }
 
+  /**
+   * Stop rendering and clean up all listeners and GL assets.
+   */
   destroy() {
     this._rendering = false;
 
@@ -344,48 +379,46 @@ export default class Renderer {
     this._renderer = null;
   }
 
+  /**
+   * DOM keydown event handler
+   * @param key {string} The key pressed.
+   */
   keydown = key => {
     switch (key) {
       case "8":
       case "w":
-        this._cameraDeltaY += Renderer.KEY_JUMP_SIZE;
+        this._cameraDelta.y += Renderer.KEY_JUMP_SIZE;
         break;
       case "2":
       case "s":
-        this._cameraDeltaY -= Renderer.KEY_JUMP_SIZE;
+        this._cameraDelta.y -= Renderer.KEY_JUMP_SIZE;
         break;
       case "4":
       case "a":
-        this._cameraDeltaX -= Renderer.KEY_JUMP_SIZE;
+        this._cameraDelta.x -= Renderer.KEY_JUMP_SIZE;
         break;
       case "6":
       case "d":
-        this._cameraDeltaX += Renderer.KEY_JUMP_SIZE;
+        this._cameraDelta.x += Renderer.KEY_JUMP_SIZE;
         break;
       case "7":
-        this._cameraDeltaY += Renderer.KEY_JUMP_SIZE;
-        this._cameraDeltaX -= Renderer.KEY_JUMP_SIZE;
+        this._cameraDelta.y += Renderer.KEY_JUMP_SIZE;
+        this._cameraDelta.x -= Renderer.KEY_JUMP_SIZE;
         break;
       case "9":
-        this._cameraDeltaY += Renderer.KEY_JUMP_SIZE;
-        this._cameraDeltaX += Renderer.KEY_JUMP_SIZE;
+        this._cameraDelta.y += Renderer.KEY_JUMP_SIZE;
+        this._cameraDelta.x += Renderer.KEY_JUMP_SIZE;
         break;
       case "1":
-        this._cameraDeltaY -= Renderer.KEY_JUMP_SIZE;
-        this._cameraDeltaX -= Renderer.KEY_JUMP_SIZE;
+        this._cameraDelta.y -= Renderer.KEY_JUMP_SIZE;
+        this._cameraDelta.x -= Renderer.KEY_JUMP_SIZE;
         break;
       case "3":
-        this._cameraDeltaY -= Renderer.KEY_JUMP_SIZE;
-        this._cameraDeltaX += Renderer.KEY_JUMP_SIZE;
+        this._cameraDelta.y -= Renderer.KEY_JUMP_SIZE;
+        this._cameraDelta.x += Renderer.KEY_JUMP_SIZE;
         break;
       case " ":
-        this._rendering = !this._rendering;
-        if (this._rendering) {
-          this._renderer.setAnimationLoop(this.render);
-          console.log("Rendering enabled.");
-        } else {
-          console.log("Rendering disabled.");
-        }
+        this.toggleRendering();
         break;
       default:
         console.debug("Unhandled key", key);
@@ -426,8 +459,8 @@ export default class Renderer {
 
     this._chunkRenderer.setLeftTop(left, top);
 
-    this._cameraDeltaX = 0;
-    this._cameraDeltaY = 0;
+    this._cameraDelta.x = 0;
+    this._cameraDelta.y = 0;
     this._cameraWorldTile.x = x;
     this._cameraWorldTile.y = y;
 
@@ -455,6 +488,44 @@ export default class Renderer {
   }
 
   /**
+   * Toggle frame rendering.
+   */
+  toggleRendering() {
+    if (this._rendering) {
+      this.startRendering();
+    } else {
+      this.stopRendering();
+    }
+  }
+
+  /**
+   * Start the renderer drawing frames.
+   */
+  startRendering() {
+    if (this._rendering) {
+      console.warn("Attempt to start rendering while already started.");
+      return;
+    }
+
+    console.log("Rendering started.");
+    this._rendering = true;
+    this._renderer.setAnimationLoop(this.render);
+  }
+
+  /**
+   * Stop the renderer from drawing frames. (It'll actually de-register itself
+   * the next time getAnimationFrame() is called.)
+   */
+  stopRendering() {
+    if (!this._rendering) {
+      console.warn("Attempt to stop rendering twice.");
+      return;
+    }
+
+    this._rendering = false;
+  }
+
+  /**
    * Start the engine! Registers window event listeners and begins rendering.
    */
   start() {
@@ -465,8 +536,7 @@ export default class Renderer {
     const midX = Math.floor(MAP_TILES_WIDE / 2);
     const midY = Math.floor(MAP_TILES_HIGH / 2);
     this.centerCameraOnTile(midX, midY);
-    this._rendering = true;
-    this._renderer.setAnimationLoop(this.render);
+    this.startRendering();
   }
 
   /**
@@ -478,8 +548,8 @@ export default class Renderer {
    * @private
    */
   _applyCameraDelta() {
-    const dX = this._cameraDeltaX;
-    const dY = this._cameraDeltaY;
+    const dX = this._cameraDelta.x;
+    const dY = this._cameraDelta.y;
 
     // The easy out case
     if (!dX && !dY) {
@@ -536,8 +606,8 @@ export default class Renderer {
     }
 
     // Reset deltas now that they've been applied
-    this._cameraDeltaX = 0;
-    this._cameraDeltaY = 0;
+    this._cameraDelta.x = 0;
+    this._cameraDelta.y = 0;
 
     // Keep track of where in the world the camera is pointing.
     this._cameraWorldTile.x += dX / TILE_PIXEL_LENGTH;
@@ -553,9 +623,15 @@ export default class Renderer {
     }
   }
 
+  /**
+   * Basically the boilerplate to set up the scene and call render() on the
+   * Three.JS renderer. This function shouldn't be called directly and should
+   * instead be passed to WebGLRenderer#setAntimationLoop
+   */
   render = () => {
     if (!this._rendering) {
       this._renderer.setAnimationLoop(null);
+      console.log("Rendering stopped.");
     }
 
     stats.begin();
