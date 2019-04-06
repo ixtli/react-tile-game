@@ -184,6 +184,14 @@ export default class Renderer {
   _mouseDownLocation = null;
 
   /**
+   * The background of the scene beyond the map.
+   *
+   * @type {Color}
+   * @private
+   */
+  _backgroundColor = new THREE.Color(0x51669a);
+
+  /**
    * Constructs the renderer.
    * @TODO: Nothing should really happen here except the renderer construction.
    *
@@ -198,11 +206,9 @@ export default class Renderer {
       ...Renderer.RENDERER_OPTIONS
     });
 
+    this._scene.background = this._backgroundColor;
     this._renderer.setPixelRatio(window.devicePixelRatio);
     this._camera.position.z = 100;
-
-    // @TODO: Is this faster?
-    // this._renderer.autoClear = true;
 
     const count = 9;
     for (let i = 0; i < count; i += 1) {
@@ -324,7 +330,7 @@ export default class Renderer {
     this._camera.updateProjectionMatrix();
 
     // Resize the chunks themselves.
-    this._chunkRenderer.windowResized(width, height, this._scene);
+    this._chunkRenderer.resize(width, height, this._scene);
 
     // How far the camera can move from the center of the scene before chunks
     // have to be shimmied around

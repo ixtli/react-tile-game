@@ -105,14 +105,17 @@ export default class ChunkRenderer {
    * @param height {number}
    * @param parentScene {Scene}
    */
-  windowResized(width, height, parentScene) {
+  resize(width, height, parentScene) {
+    // Calculate the width and height of the scene in chunks
     const chunksWide =
       Math.ceil(width / CHUNK_PIXEL_LENGTH) + PRE_RENDER_CHUNKS * 2;
     const chunksHigh =
       Math.ceil(height / CHUNK_PIXEL_LENGTH) + PRE_RENDER_CHUNKS * 2;
+
     const oldChunkCount = this._chunks.length;
     const newChunkCount = chunksWide * chunksHigh;
 
+    // Save dimension info.
     this._chunksHigh = chunksHigh;
     this._chunksWide = chunksWide;
     this._sceneDimensions.width = chunksWide * CHUNK_PIXEL_LENGTH;
@@ -121,31 +124,37 @@ export default class ChunkRenderer {
     if (oldChunkCount !== newChunkCount) {
       const difference = Math.abs(oldChunkCount - newChunkCount);
 
+      // Are we destroying chunks?
       if (oldChunkCount > newChunkCount) {
-        // trash old chunks
-        for (let i = newChunkCount; i < oldChunkCount; i++) {
-          parentScene.remove(this._chunks[i].getMesh());
-          this._chunks[i].dispose();
-        }
+        // If so clean up
+        this._chunks.splice(newChunkCount, difference).forEach(chunk => {
+          // Chunks don't know about their parent so this is our responsibility
+          parentScene.remove(chunk.getMesh());
 
-        this._chunks.splice(newChunkCount, difference);
+          // Call dispose on the chunk
+          chunk.dispose();
+        });
 
         console.log("Destroyed", difference, "chunks (", newChunkCount, ")");
       } else {
+        // In this case we're adding chunks
         for (let i = oldChunkCount; i < newChunkCount; i++) {
+          // Create a new one and add it to the scene and our list.
           const newChunk = new Chunk();
           this._chunks.push(newChunk);
           parentScene.add(newChunk.getMesh());
         }
+
         console.log("Created", difference, "chunks (", newChunkCount, ")");
       }
     }
 
-    const { x, y } = this._topLeftChunkCoordinate;
-
-    if (x >= 0 && y >= 0) {
-      this.setLeftTop(x, y);
-    }
+    // No matter what we want to update all chunks because they could be in any
+    // order. There is, theoretically, an optimization here to only update the
+    // chunks that have moved out of order because it isn't the case that they
+    // have all changed location, depending on how the size has changed.
+    const { left, top } = this._topLeftChunkCoordinate;
+    this.setLeftTop(left, top);
   }
 
   /**
@@ -314,6 +323,7 @@ export default class ChunkRenderer {
 
   dispose() {
     this._chunks.forEach(chunk => chunk.dispose());
+    this._chunks = null;
   }
 
   chunksWide() {
