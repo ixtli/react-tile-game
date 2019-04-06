@@ -106,7 +106,9 @@ export default class ChunkRenderer {
    * @param parentScene {Scene}
    */
   resize(width, height, parentScene) {
-    // Calculate the width and height of the scene in chunks
+    // Calculate the width and height of the scene in chunks. The pre-render
+    // chunk value is how many chunks past the actual window border we should
+    // calculate ON EACH SIDE, hence the magic number `* 2`.
     const chunksWide =
       Math.ceil(width / CHUNK_PIXEL_LENGTH) + PRE_RENDER_CHUNKS * 2;
     const chunksHigh =
@@ -145,7 +147,17 @@ export default class ChunkRenderer {
           parentScene.add(newChunk.getMesh());
         }
 
-        console.log("Created", difference, "chunks (", newChunkCount, ")");
+        console.log(
+          "Created",
+          difference,
+          "chunks (",
+          chunksWide,
+          "x",
+          chunksHigh,
+          ", total:",
+          newChunkCount,
+          ")"
+        );
       }
     }
 
@@ -188,9 +200,9 @@ export default class ChunkRenderer {
    * @returns {boolean} True if the pan happened
    */
   panUp() {
-    const newTop = this._topLeftChunkCoordinate.top - 1;
+    const newTop = Math.max(0, this._topLeftChunkCoordinate.top - 1);
 
-    if (newTop < 0) {
+    if (newTop === this._topLeftChunkCoordinate.top) {
       return false;
     }
 
@@ -217,9 +229,10 @@ export default class ChunkRenderer {
    * @returns {boolean} True if the pan happened
    */
   panDown() {
-    const newTop = this._topLeftChunkCoordinate.top + 1;
+    const boundary = MAP_CHUNKS_HIGH - this.chunksHigh();
+    const newTop = Math.min(boundary, this._topLeftChunkCoordinate.top + 1);
 
-    if (newTop + this.chunksHigh() >= MAP_CHUNKS_HIGH) {
+    if (newTop === this._topLeftChunkCoordinate.top) {
       return false;
     }
 
@@ -245,9 +258,12 @@ export default class ChunkRenderer {
    */
   panRight() {
     const chunksWide = this.chunksWide();
-    const newLeft = this._topLeftChunkCoordinate.left + 1;
+    const newLeft = Math.min(
+      MAP_CHUNKS_WIDE - chunksWide,
+      this._topLeftChunkCoordinate.left + 1
+    );
 
-    if (chunksWide + newLeft >= MAP_CHUNKS_WIDE) {
+    if (newLeft === this._topLeftChunkCoordinate.left) {
       return false;
     }
 
@@ -274,9 +290,9 @@ export default class ChunkRenderer {
    * @returns {boolean} True if the pan happened
    */
   panLeft() {
-    const newLeft = this._topLeftChunkCoordinate.left - 1;
+    const newLeft = Math.max(0, this._topLeftChunkCoordinate.left - 1);
 
-    if (newLeft < 0) {
+    if (newLeft === this._topLeftChunkCoordinate.left) {
       return false;
     }
 

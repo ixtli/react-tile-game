@@ -6,7 +6,21 @@ export const MAP_CHUNKS_WIDE = 32;
 export const MAP_CHUNKS_HIGH = 32;
 
 // Performance
+/**
+ * The length of a side of a chunk, in tiles. Larger means more work less often,
+ * and fewer means less work more often when panning.
+ *
+ * @type {number}
+ */
 export const CHUNK_TILE_LENGTH = 16;
+
+/**
+ * How many chunks outside of the visible area to render. The idea is that you
+ * do more work when panning in order to be able to pan more without having to
+ * recalculate chunks.
+ *
+ * @type {number}
+ */
 export const PRE_RENDER_CHUNKS = 1;
 
 // Computed

@@ -28,7 +28,7 @@ export default class Renderer {
    *
    * @type {number}
    */
-  static KEY_JUMP_SIZE = 32;
+  static KEY_JUMP_SIZE = CHUNK_PIXEL_LENGTH;
 
   /**
    * The WebGLRenderer options
@@ -310,7 +310,13 @@ export default class Renderer {
       sceneY
     );
 
-    console.log("Picked tile:", worldTileX, ",", worldTileY);
+    // noinspection JSSuspiciousNameCombination
+    console.log(
+      "Picked tile:",
+      Math.floor(worldTileX),
+      ",",
+      Math.floor(worldTileY)
+    );
   };
 
   /**
@@ -387,6 +393,8 @@ export default class Renderer {
     this._camera.bottom = 0;
     this._camera.near = -1;
     this._camera.far = 2000;
+
+    // Three requires us to call this whenever the cameras shape is updated.
     this._camera.updateProjectionMatrix();
 
     // Resize the chunks themselves.
