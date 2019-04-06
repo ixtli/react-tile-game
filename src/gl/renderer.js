@@ -143,6 +143,18 @@ export default class Renderer {
 
   /**
    *
+   * @type {{top: number, left: number, bottom: number, right: number}}
+   * @private
+   */
+  _offMapBoundary = {
+    top: 0,
+    left: 0,
+    bottom: 0,
+    right: 0
+  };
+
+  /**
+   *
    * @type {Mesh}
    * @private
    */
@@ -204,8 +216,8 @@ export default class Renderer {
 
   _mouseMoveHandler = ({ offsetX, offsetY }) => {
     if (this._mouseDownLocation) {
-      this._cameraDeltaX += (this._mouseDownLocation.x - offsetX);
-      this._cameraDeltaY += (offsetY - this._mouseDownLocation.y);
+      this._cameraDeltaX += this._mouseDownLocation.x - offsetX;
+      this._cameraDeltaY += offsetY - this._mouseDownLocation.y;
       this._mouseDownLocation.x = offsetX;
       this._mouseDownLocation.y = offsetY;
       return;
@@ -300,6 +312,12 @@ export default class Renderer {
     this._panBoundary.bottom = 0;
     this._panBoundary.left = 0;
     this._panBoundary.right = sceneDimensions.width - width;
+
+    const boundary = 2 * TILE_PIXEL_LENGTH;
+    this._offMapBoundary.left = -boundary;
+    this._offMapBoundary.right = sceneDimensions.width - (width - boundary);
+    this._offMapBoundary.top = sceneDimensions.height - (height - boundary);
+    this._offMapBoundary.bottom = -boundary;
   };
 
   width() {
@@ -443,39 +461,51 @@ export default class Renderer {
       return;
     }
 
-    this._camera.position.x += dX;
-    this._camera.position.y += dY;
+    let { x, y } = this._camera.position;
+    x += dX;
+    y += dY;
+
+    let delta = false;
+    if (y > this._panBoundary.top) {
+      if (this._chunkRenderer.panUp()) {
+        y -= this._panBoundary.offset;
+        delta = true;
+      } else if (y > this._offMapBoundary.top) {
+        y = this._offMapBoundary.top;
+      }
+    } else if (y < this._panBoundary.bottom) {
+      if (this._chunkRenderer.panDown()) {
+        y += this._panBoundary.offset;
+        delta = true;
+      } else if (y < this._offMapBoundary.bottom) {
+        y = this._offMapBoundary.bottom;
+      }
+    }
+
+    if (x > this._panBoundary.right) {
+      if (this._chunkRenderer.panRight()) {
+        x -= this._panBoundary.offset;
+        delta = true;
+      } else if (x > this._offMapBoundary.right) {
+        x = this._offMapBoundary.right;
+      }
+    } else if (x < this._panBoundary.left) {
+      if (this._chunkRenderer.panLeft()) {
+        x += this._panBoundary.offset;
+        delta = true;
+      } else if (x < this._offMapBoundary.left) {
+        x = this._offMapBoundary.left;
+      }
+    }
+
     this._cameraDeltaX = 0;
     this._cameraDeltaY = 0;
     this._cameraWorldTile.x += Math.floor(dX);
     // This really is absurd:
     // noinspection JSSuspiciousNameCombination
     this._cameraWorldTile.y += Math.floor(dY);
-
-    let delta = false;
-    if (this._camera.position.y > this._panBoundary.top) {
-      if (this._chunkRenderer.panUp()) {
-        this._camera.position.y -= this._panBoundary.offset;
-        delta = true;
-      }
-    } else if (this._camera.position.y < this._panBoundary.bottom) {
-      if (this._chunkRenderer.panDown()) {
-        this._camera.position.y += this._panBoundary.offset;
-        delta = true;
-      }
-    }
-
-    if (this._camera.position.x > this._panBoundary.right) {
-      if (this._chunkRenderer.panRight()) {
-        this._camera.position.x -= this._panBoundary.offset;
-        delta = true;
-      }
-    } else if (this._camera.position.x < this._panBoundary.left) {
-      if (this._chunkRenderer.panLeft()) {
-        this._camera.position.x += this._panBoundary.offset;
-        delta = true;
-      }
-    }
+    this._camera.position.x = x;
+    this._camera.position.y = y;
 
     if (delta) {
       this._chunkRenderer.reorientChunks();
