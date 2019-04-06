@@ -171,6 +171,13 @@ export default class Renderer {
 
   /**
    *
+   * @type {Mesh}
+   * @private
+   */
+  _tileSelector = null;
+
+  /**
+   *
    * @type {boolean}
    * @private
    */
@@ -210,25 +217,41 @@ export default class Renderer {
     this._renderer.setPixelRatio(window.devicePixelRatio);
     this._camera.position.z = 100;
 
+    this._initTileMaterials();
+    this._initSparseObjects();
+  }
+
+  _initTileMaterials() {
     const count = 9;
     for (let i = 0; i < count; i += 1) {
       this._tileMaterials.greenTile(i / count);
     }
+  }
 
-    // @TODO: Move this away from here.
+  _initSparseObjects() {
     const geom = new THREE.PlaneBufferGeometry(
       TILE_PIXEL_LENGTH,
       TILE_PIXEL_LENGTH
     );
-    const material = new THREE.MeshBasicMaterial({
+    const highlighterMaterial = new THREE.MeshBasicMaterial({
       color: 0xffff00,
       opacity: 0.85,
       transparent: true,
       side: THREE.FrontSide
     });
-    this._tileHighlighter = new THREE.Mesh(geom, material);
+    this._tileHighlighter = new THREE.Mesh(geom, highlighterMaterial);
     this._tileHighlighter.position.set(0, 0, 2);
     this._scene.add(this._tileHighlighter);
+
+    const selectorMaterial = new THREE.MeshBasicMaterial({
+      color: 0x0000ff,
+      opacity: 0.55,
+      transparent: true,
+      side: THREE.FrontSide
+    });
+    this._tileSelector = new THREE.Mesh(geom, selectorMaterial);
+    this._tileSelector.position.set(0, 0, 2);
+    this._scene.add(this._tileSelector);
   }
 
   _mouseMoveHandler = ({ offsetX, offsetY }) => {
@@ -256,6 +279,15 @@ export default class Renderer {
     this._mouseDownLocation = null;
   };
 
+  _clickHandler = ({ offsetX, offsetY }) => {
+    const sceneX = this._camera.position.x + offsetX;
+    const sceneY = this._camera.position.y + this.height() - offsetY;
+    this._tileSelector.position.x =
+      sceneX - (sceneX % TILE_PIXEL_LENGTH) + Math.floor(TILE_PIXEL_LENGTH / 2);
+    this._tileSelector.position.y =
+      sceneY - (sceneY % TILE_PIXEL_LENGTH) + Math.floor(TILE_PIXEL_LENGTH / 2);
+  };
+
   /**
    * Register all event listeners
    */
@@ -263,6 +295,7 @@ export default class Renderer {
     this._canvas.addEventListener("mousemove", this._mouseMoveHandler);
     this._canvas.addEventListener("mousedown", this._mouseDownHandler);
     this._canvas.addEventListener("mouseup", this._mouseUpHandler);
+    this._canvas.addEventListener("click", this._clickHandler);
   }
 
   /**
@@ -272,6 +305,7 @@ export default class Renderer {
     this._canvas.removeEventListener("mousemove", this._mouseMoveHandler);
     this._canvas.removeEventListener("mousedown", this._mouseDownHandler);
     this._canvas.removeEventListener("mouseup", this._mouseUpHandler);
+    this._canvas.removeEventListener("click", this._clickHandler);
   }
 
   /**
