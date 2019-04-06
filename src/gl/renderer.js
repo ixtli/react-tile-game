@@ -150,6 +150,20 @@ export default class Renderer {
 
   /**
    *
+   * @type {boolean}
+   * @private
+   */
+  _allowMapDragWithMouse = true;
+
+  /**
+   *
+   * @type {?{x: number, y: number}}
+   * @private
+   */
+  _mouseDownLocation = null;
+
+  /**
+   *
    * @param canvas {HTMLCanvasElement}
    */
   constructor(canvas) {
@@ -186,6 +200,43 @@ export default class Renderer {
     this._tileHighlighter = new THREE.Mesh(geom, material);
     this._tileHighlighter.position.set(0, 0, 2);
     this._scene.add(this._tileHighlighter);
+  }
+
+  _mouseMoveHandler = ({ offsetX, offsetY }) => {
+    if (this._mouseDownLocation) {
+      this._cameraDeltaX += (this._mouseDownLocation.x - offsetX);
+      this._cameraDeltaY += (offsetY - this._mouseDownLocation.y);
+      this._mouseDownLocation.x = offsetX;
+      this._mouseDownLocation.y = offsetY;
+      return;
+    }
+
+    const sceneX = this._camera.position.x + offsetX;
+    const sceneY = this._camera.position.y + this.height() - offsetY;
+    this._tileHighlighter.position.x =
+      sceneX - (sceneX % TILE_PIXEL_LENGTH) + Math.floor(TILE_PIXEL_LENGTH / 2);
+    this._tileHighlighter.position.y =
+      sceneY - (sceneY % TILE_PIXEL_LENGTH) + Math.floor(TILE_PIXEL_LENGTH / 2);
+  };
+
+  _mouseDownHandler = ({ offsetX, offsetY }) => {
+    this._mouseDownLocation = { x: offsetX, y: offsetY };
+  };
+
+  _mouseUpHandler = () => {
+    this._mouseDownLocation = null;
+  };
+
+  listenForMouseEvents() {
+    this._canvas.addEventListener("mousemove", this._mouseMoveHandler);
+    this._canvas.addEventListener("mousedown", this._mouseDownHandler);
+    this._canvas.addEventListener("mouseup", this._mouseUpHandler);
+  }
+
+  stopListeningForMouseEvents() {
+    this._canvas.removeEventListener("mousemove", this._mouseMoveHandler);
+    this._canvas.removeEventListener("mousedown", this._mouseDownHandler);
+    this._canvas.removeEventListener("mouseup", this._mouseUpHandler);
   }
 
   /**
@@ -264,6 +315,7 @@ export default class Renderer {
 
     stopListeningForResize(this.name());
     stopListeningForKeydown(this.name());
+    this.stopListeningForMouseEvents();
     this._chunkRenderer.dispose();
     this._tileMaterials.dispose();
     this._renderer.dispose();
@@ -374,6 +426,7 @@ export default class Renderer {
   start() {
     listenForResize(this.name(), this.resize);
     listenForKeydown(this.name(), this.keydown);
+    this.listenForMouseEvents();
 
     const midX = Math.floor(MAP_TILES_WIDE / 2);
     const midY = Math.floor(MAP_TILES_HIGH / 2);
@@ -381,8 +434,6 @@ export default class Renderer {
     this._rendering = true;
     this._renderer.setAnimationLoop(this.render);
   }
-
-  selectTile() {}
 
   _applyCameraDelta() {
     const dX = this._cameraDeltaX;
