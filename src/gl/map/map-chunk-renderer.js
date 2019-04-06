@@ -327,4 +327,12 @@ export default class ChunkRenderer {
   sceneDimensions() {
     return this._sceneDimensions;
   }
+
+  top() {
+    return this._topLeftChunkCoordinate.top;
+  }
+
+  left() {
+    return this._topLeftChunkCoordinate.left;
+  }
 }

@@ -215,7 +215,7 @@ export default class Renderer {
   }
 
   _mouseMoveHandler = ({ offsetX, offsetY }) => {
-    if (this._mouseDownLocation) {
+    if (this._mouseDownLocation && this._allowMapDragWithMouse) {
       this._cameraDeltaX += this._mouseDownLocation.x - offsetX;
       this._cameraDeltaY += offsetY - this._mouseDownLocation.y;
       this._mouseDownLocation.x = offsetX;
@@ -393,6 +393,11 @@ export default class Renderer {
     }
   };
 
+  /**
+   * Center the camera on a world map tile (x, y)
+   * @param x {number}
+   * @param y {number}
+   */
   centerCameraOnTile(x, y) {
     console.assert(x >= 0);
     console.assert(y >= 0);
@@ -426,21 +431,32 @@ export default class Renderer {
     this._cameraWorldTile.x = x;
     this._cameraWorldTile.y = y;
 
-    // @TODO: This needs to put the center of the camera over the pixel (x,y)
     // translate the world space into screen space
+    const { sceneX, sceneY } = this.sceneCoordinateForWorldCoordinate(x, y);
+    this._camera.position.x = sceneX - Math.round(this.width() / 2);
+    this._camera.position.y = sceneY - Math.round(this.height() / 2);
+  }
+
+  /**
+   * Return scene X / Y coordinates for a world tile coordinate
+   *
+   * @param x {number}
+   * @param y {number}
+   * @return {{sceneY: number, sceneX: number}}
+   */
+  sceneCoordinateForWorldCoordinate(x, y) {
+    const left = this._chunkRenderer.left();
+    const top = this._chunkRenderer.top();
     const worldPixelX = x * TILE_PIXEL_LENGTH;
     const worldPixelY = y * TILE_PIXEL_LENGTH;
     const sceneX = worldPixelX - left * CHUNK_PIXEL_LENGTH;
     const sceneY = worldPixelY - top * CHUNK_PIXEL_LENGTH;
-    this._camera.position.x = sceneX - Math.round(this.width() / 2);
-    this._camera.position.y = sceneY - Math.round(this.height() / 2);
-
-    this._tileHighlighter.position.x =
-      sceneX - Math.floor(TILE_PIXEL_LENGTH / 2);
-    this._tileHighlighter.position.y =
-      sceneY + Math.floor(TILE_PIXEL_LENGTH / 2);
+    return { sceneX, sceneY };
   }
 
+  /**
+   * Start the engine! Registers window event listeners and begins rendering.
+   */
   start() {
     listenForResize(this.name(), this.resize);
     listenForKeydown(this.name(), this.keydown);
@@ -453,10 +469,19 @@ export default class Renderer {
     this._renderer.setAnimationLoop(this.render);
   }
 
+  /**
+   * Apply whatever delta X, Y has been queued up for the camera since the last
+   * time a frame was rendered. This will check to make sure we dont pan too far
+   * away from the map and further ensure that we pan the scene's map chunks to
+   * maintain the illusion that the scene itself stretches on forever.
+   *
+   * @private
+   */
   _applyCameraDelta() {
     const dX = this._cameraDeltaX;
     const dY = this._cameraDeltaY;
 
+    // The easy out case
     if (!dX && !dY) {
       return;
     }
@@ -465,15 +490,26 @@ export default class Renderer {
     x += dX;
     y += dY;
 
+    // If this is true then we need to reorient chunks
     let delta = false;
+
+    // If we've panned higher than the scene pan boundary
     if (y > this._panBoundary.top) {
+      // Try to pan up in the world
       if (this._chunkRenderer.panUp()) {
+        // If we panned up (i.e.: there was more map), adjust the camera down by
+        // the offset to make it seem like we're panning smoothly. This is the
+        // core pantomime that achieves the effect of "infinite" maps.
         y -= this._panBoundary.offset;
+        // Mark the fact that we're going to need to reorient
         delta = true;
       } else if (y > this._offMapBoundary.top) {
+        // If we get here, it means that we're off the map, so make sure we dont
+        // scroll past a comfortable boundary.
         y = this._offMapBoundary.top;
       }
     } else if (y < this._panBoundary.bottom) {
+      // Same tests as above, but for panning down.
       if (this._chunkRenderer.panDown()) {
         y += this._panBoundary.offset;
         delta = true;
@@ -482,6 +518,7 @@ export default class Renderer {
       }
     }
 
+    // Same tests as above but for left and right
     if (x > this._panBoundary.right) {
       if (this._chunkRenderer.panRight()) {
         x -= this._panBoundary.offset;
@@ -498,15 +535,19 @@ export default class Renderer {
       }
     }
 
+    // Reset deltas now that they've been applied
     this._cameraDeltaX = 0;
     this._cameraDeltaY = 0;
-    this._cameraWorldTile.x += Math.floor(dX);
-    // This really is absurd:
-    // noinspection JSSuspiciousNameCombination
-    this._cameraWorldTile.y += Math.floor(dY);
+
+    // Keep track of where in the world the camera is pointing.
+    this._cameraWorldTile.x += dX / TILE_PIXEL_LENGTH;
+    this._cameraWorldTile.y += dY / TILE_PIXEL_LENGTH;
+
+    // Apply the new camera positions
     this._camera.position.x = x;
     this._camera.position.y = y;
 
+    // If we happened to have successfully panned, reorient the map chunks.
     if (delta) {
       this._chunkRenderer.reorientChunks();
     }
