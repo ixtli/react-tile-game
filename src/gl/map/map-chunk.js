@@ -8,6 +8,12 @@ import {
   TILES_PER_CHUNK
 } from "../../config";
 
+/**
+ * A map chunk is a N x N square of tiles that is rendered into a texture that
+ * is added to the scene. The idea is that instead of rendering N x Tile Count,
+ * you can just render Chunk Count every frame resulting in far less overhead
+ * and less updating of vertex data.
+ */
 export default class Chunk {
   static CHUNK_DEBUG_SPACING = 0;
 

@@ -1,6 +1,6 @@
-import * as THREE from "three";
-import { TILE_PIXEL_LENGTH } from "../config";
-import { newOffscreenCanvas } from "../util/compatability";
+import * as THREE from "three/src/Three";
+import { TILE_PIXEL_LENGTH } from "../../config";
+import { newOffscreenCanvas } from "../../util/compatability";
 
 export class TileMaterialManager {
   static MAX_TEXTURE_COUNT = 65535;

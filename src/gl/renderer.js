@@ -12,8 +12,8 @@ import {
 } from "../config";
 import { stats } from "../util/stats-wrapper";
 import { getWebGLContextFromCanvas } from "../util/compatability";
-import { TileMaterialManager } from "./tile-materials-manager";
-import * as TWEEN from "@tweenjs/tween.js";
+import { TileMaterialManager } from "./map/tile-materials-manager";
+import TWEEN from "@tweenjs/tween.js";
 
 export default class Renderer {
   /**
@@ -201,14 +201,14 @@ export default class Renderer {
 
   /**
    *
-   * @type {Tween}
+   * @type {TWEEN.Tween}
    * @private
    */
   _cameraTween = null;
 
   /**
-   * Constructs the renderer.
-   * @TODO: Nothing should really happen here except the renderer construction.
+   * Constructs the renderer and sets initial values like the Z position of the
+   * camera that shouldn't really ever change through the life of the renderer.
    *
    * @param canvas {HTMLCanvasElement}
    */
@@ -283,10 +283,18 @@ export default class Renderer {
       offsetY
     );
 
-    this._tileHighlighter.position.x =
-      sceneX - (sceneX % TILE_PIXEL_LENGTH) + Math.floor(TILE_PIXEL_LENGTH / 2);
-    this._tileHighlighter.position.y =
-      sceneY - (sceneY % TILE_PIXEL_LENGTH) + Math.floor(TILE_PIXEL_LENGTH / 2);
+    const { width, height } = this._chunkRenderer.sceneDimensions();
+    let x = Math.min(
+      Math.max(0, sceneX - (sceneX % TILE_PIXEL_LENGTH)),
+      width - TILE_PIXEL_LENGTH
+    );
+    let y = Math.min(
+      Math.max(0, sceneY - (sceneY % TILE_PIXEL_LENGTH)),
+      height - TILE_PIXEL_LENGTH
+    );
+
+    this._tileHighlighter.position.x = x + Math.floor(TILE_PIXEL_LENGTH / 2);
+    this._tileHighlighter.position.y = y + Math.floor(TILE_PIXEL_LENGTH / 2);
   };
 
   _mouseDownHandler = ({ offsetX, offsetY }) => {
@@ -334,6 +342,7 @@ export default class Renderer {
 
   stopCurrentCameraTween() {
     if (this._cameraTween) {
+      // noinspection JSUnresolvedFunction
       this._cameraTween.stop();
       this._cameraTween = null;
     }
@@ -342,9 +351,8 @@ export default class Renderer {
   /**
    *
    * @param to {{x: number, y: number}}
-   * @param easing {?TWEEN.Easing}
    */
-  tweenCameraToSceneCoordinate(to, easing) {
+  tweenCameraToSceneCoordinate(to) {
     this._cameraDelta.x = 0;
     this._cameraDelta.y = 0;
 
@@ -359,7 +367,7 @@ export default class Renderer {
 
     this._cameraTween = new TWEEN.Tween(coords)
       .to(to, 1000)
-      .easing(easing ? easing : TWEEN.Easing.Quadratic.Out)
+      .easing(TWEEN.Easing.Quadratic.Out)
       .onUpdate(() => {
         this._cameraDelta.x += coords.x - last.x;
         this._cameraDelta.y += coords.y - last.y;
