@@ -168,7 +168,7 @@ export default class Renderer {
 
   /**
    *
-   * @type {Mesh}
+   * @type {MapObject}
    * @private
    */
   _tileHighlighter = null;
@@ -252,24 +252,19 @@ export default class Renderer {
   _initTileMaterials() {
     const count = 9;
     for (let i = 0; i < count; i += 1) {
-      this._tileMaterials.greenTile(i / count);
+      this._tileMaterials.greenTile(i * 0.005);
     }
   }
 
   _initSparseObjects() {
-    const geom = new THREE.PlaneBufferGeometry(
-      TILE_PIXEL_LENGTH,
-      TILE_PIXEL_LENGTH
-    );
-    const highlighterMaterial = new THREE.MeshBasicMaterial({
+    const hMat = this._objectMaterials.newMaterial({
       color: 0xffff00,
-      opacity: 0.85,
+      opacity: 0.55,
       transparent: true,
-      side: THREE.FrontSide
     });
-    this._tileHighlighter = new THREE.Mesh(geom, highlighterMaterial);
-    this._tileHighlighter.position.set(0, 0, 10);
-    this._scene.add(this._tileHighlighter);
+    this._tileHighlighter = new MapObject(5);
+    this._tileHighlighter.material(hMat).setWorldPosition(0,0);
+    this._objects.add(this._tileHighlighter);
 
     const mat = this._objectMaterials.newMaterial({
       color: 0x0000ff,
@@ -319,19 +314,9 @@ export default class Renderer {
       offsetX,
       offsetY
     );
-
-    const { width, height } = this._chunkRenderer.sceneDimensions();
-    let x = Math.min(
-      Math.max(0, sceneX - (sceneX % TILE_PIXEL_LENGTH)),
-      width - TILE_PIXEL_LENGTH
-    );
-    let y = Math.min(
-      Math.max(0, sceneY - (sceneY % TILE_PIXEL_LENGTH)),
-      height - TILE_PIXEL_LENGTH
-    );
-
-    this._tileHighlighter.position.x = x + Math.floor(TILE_PIXEL_LENGTH / 2);
-    this._tileHighlighter.position.y = y + Math.floor(TILE_PIXEL_LENGTH / 2);
+    const { x, y } = this.worldTileForSceneCoordinate(sceneX, sceneY);
+    // noinspection JSSuspiciousNameCombination
+    this._tileHighlighter.setWorldPosition(Math.floor(x), Math.floor(y));
   };
 
   _mouseDownHandler = ({ offsetX, offsetY }) => {
@@ -493,6 +478,7 @@ export default class Renderer {
 
     // Resize the chunks themselves.
     this._chunkRenderer.resize(width, height, this._scene);
+    this._objects.offsetForChunkRenderer(this._chunkRenderer);
 
     // How far the camera can move from the center of the scene before chunks
     // have to be shimmied around
@@ -637,6 +623,7 @@ export default class Renderer {
     );
 
     this._chunkRenderer.setLeftTop(left, top);
+    this._objects.offsetForChunkRenderer(this._chunkRenderer);
 
     // This function is a camera movement
     this._cameraDelta.x = 0;
