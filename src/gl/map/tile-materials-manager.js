@@ -3,7 +3,7 @@ import { TILE_PIXEL_LENGTH } from "../../config";
 import { newOffscreenCanvas } from "../../util/compatability";
 
 export class TileMaterialManager {
-  static MAX_TEXTURE_COUNT = 65535;
+  static MAX_TEXTURE_COUNT = 16384;
 
   /**
    *

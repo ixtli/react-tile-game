@@ -14,6 +14,9 @@ import { stats } from "../util/stats-wrapper";
 import { getWebGLContextFromCanvas } from "../util/compatability";
 import { TileMaterialManager } from "./map/tile-materials-manager";
 import TWEEN from "@tweenjs/tween.js";
+import { SparseObjectManager } from "./map/sparse-object-manager";
+import ObjectMaterialManager from "./map/object-materials-manager";
+import MapObject from "./map/map-object";
 
 export default class Renderer {
   /**
@@ -172,7 +175,7 @@ export default class Renderer {
 
   /**
    *
-   * @type {Mesh}
+   * @type {MapObject}
    * @private
    */
   _tileSelector = null;
@@ -207,6 +210,20 @@ export default class Renderer {
   _cameraTween = null;
 
   /**
+   *
+   * @type {ObjectMaterialManager}
+   * @private
+   */
+  _objectMaterials = new ObjectMaterialManager();
+
+  /**
+   *
+   * @type {SparseObjectManager}
+   * @private
+   */
+  _objects = new SparseObjectManager();
+
+  /**
    * Constructs the renderer and sets initial values like the Z position of the
    * camera that shouldn't really ever change through the life of the renderer.
    *
@@ -224,6 +241,9 @@ export default class Renderer {
     this._scene.background = this._backgroundColor;
     this._renderer.setPixelRatio(window.devicePixelRatio);
     this._camera.position.z = 100;
+
+    // Add sparse object groups
+    this._scene.add(this._objects.group());
 
     this._initTileMaterials();
     this._initSparseObjects();
@@ -248,18 +268,17 @@ export default class Renderer {
       side: THREE.FrontSide
     });
     this._tileHighlighter = new THREE.Mesh(geom, highlighterMaterial);
-    this._tileHighlighter.position.set(0, 0, 2);
+    this._tileHighlighter.position.set(0, 0, 10);
     this._scene.add(this._tileHighlighter);
 
-    const selectorMaterial = new THREE.MeshBasicMaterial({
+    const mat = this._objectMaterials.newMaterial({
       color: 0x0000ff,
       opacity: 0.55,
-      transparent: true,
-      side: THREE.FrontSide
+      transparent: true
     });
-    this._tileSelector = new THREE.Mesh(geom, selectorMaterial);
-    this._tileSelector.position.set(0, 0, 2);
-    this._scene.add(this._tileSelector);
+    this._tileSelector = new MapObject(3);
+    this._tileSelector.material(mat).setWorldPosition(0, 0);
+    this._objects.add(this._tileSelector);
   }
 
   windowOffsetToSceneCoordinate(offsetX, offsetY) {
@@ -310,10 +329,9 @@ export default class Renderer {
       offsetX,
       offsetY
     );
-    this._tileSelector.position.x =
-      sceneX - (sceneX % TILE_PIXEL_LENGTH) + Math.floor(TILE_PIXEL_LENGTH / 2);
-    this._tileSelector.position.y =
-      sceneY - (sceneY % TILE_PIXEL_LENGTH) + Math.floor(TILE_PIXEL_LENGTH / 2);
+    const { x, y } = this.worldTileForSceneCoordinate(sceneX, sceneY);
+    // noinspection JSSuspiciousNameCombination
+    this._tileSelector.setWorldPosition(Math.floor(x), Math.floor(y));
   };
 
   _doubleClickHandler = ({ offsetX, offsetY }) => {
@@ -503,6 +521,8 @@ export default class Renderer {
     this.stopListeningForMouseEvents();
     this._chunkRenderer.dispose();
     this._tileMaterials.dispose();
+    this._objects.dispose();
+    this._objectMaterials.dispose();
     this._renderer.dispose();
 
     this._map = null;
@@ -636,15 +656,15 @@ export default class Renderer {
    *
    * @param sceneX {number}
    * @param sceneY {number}
-   * @return {{worldTileX: number, worldTileY: number}}
+   * @return {{x: number, y: number}}
    */
   worldTileForSceneCoordinate(sceneX, sceneY) {
     const left = this._chunkRenderer.left() * CHUNK_PIXEL_LENGTH;
     const top = this._chunkRenderer.top() * CHUNK_PIXEL_LENGTH;
-    const worldTileX = (sceneX + left) / TILE_PIXEL_LENGTH;
+    const x = (sceneX + left) / TILE_PIXEL_LENGTH;
     const invert = this._chunkRenderer.sceneDimensions().height - sceneY;
-    const worldTileY = (invert + top) / TILE_PIXEL_LENGTH;
-    return { worldTileX, worldTileY };
+    const y = (invert + top) / TILE_PIXEL_LENGTH;
+    return { x, y };
   }
 
   /**
@@ -780,6 +800,7 @@ export default class Renderer {
     // If we happened to have successfully panned, reorient the map chunks.
     if (delta) {
       this._chunkRenderer.reorientChunks();
+      this._objects.offsetForChunkRenderer(this._chunkRenderer);
     }
   }
 

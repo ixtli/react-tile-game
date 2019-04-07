@@ -332,6 +332,7 @@ export default class ChunkRenderer {
    * @param renderer {WebGLRenderer}
    */
   update(renderer) {
+    console.timeStamp("ChunkRenderer#update");
     const start = performance.now();
     const chunks = this._chunks;
     const chunkCount = chunks.length;
@@ -345,7 +346,7 @@ export default class ChunkRenderer {
 
     if (updateCount) {
       const end = performance.now();
-      console.log("Updated", updateCount, "chunks in", end - start, "ms");
+      console.debug("Updated", updateCount, "chunks in", end - start, "ms");
     }
   }
 

@@ -32,6 +32,15 @@ export default class Chunk {
 
   /**
    *
+   * @type {PlaneBufferGeometry}
+   */
+  static GEOMETRY = new THREE.PlaneBufferGeometry(
+    CHUNK_PIXEL_LENGTH,
+    CHUNK_PIXEL_LENGTH
+  );
+
+  /**
+   *
    * @type {Sprite[]}
    * @private
    */
@@ -57,16 +66,6 @@ export default class Chunk {
 
   /**
    *
-   * @type {PlaneBufferGeometry}
-   * @private
-   */
-  _geometry = new THREE.PlaneBufferGeometry(
-    CHUNK_PIXEL_LENGTH,
-    CHUNK_PIXEL_LENGTH
-  );
-
-  /**
-   *
    * @type {MeshBasicMaterial}
    * @private
    */
@@ -80,7 +79,7 @@ export default class Chunk {
    * @type {Mesh}
    * @private
    */
-  _mesh = new THREE.Mesh(this._geometry, this._material);
+  _mesh = new THREE.Mesh(Chunk.GEOMETRY, this._material);
 
   /**
    *
@@ -233,11 +232,9 @@ export default class Chunk {
 
   dispose() {
     this._texture.dispose();
-    this._geometry.dispose();
     this._material.dispose();
     this._texture = null;
     this._material = null;
-    this._geometry = null;
     this._mesh = null;
     this._scene = null;
 
