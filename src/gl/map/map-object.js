@@ -101,20 +101,18 @@ export default class MapObject {
 
   /**
    *
-   * @return {{x: number, y: number}}
-   */
-  getWorldPosition() {
-    return this._worldPosition;
-  }
-
-  /**
-   *
    * @return {Mesh}
    */
   mesh() {
     return this._mesh;
   }
 
+  /**
+   * A convenience method that returns the one-dimensional array index this
+   * object would occupy if it was in an array the size of the map.
+   *
+   * @return {number}
+   */
   worldMapArrayIndex() {
     return this._worldPosition.y * MAP_TILES_WIDE + this._worldPosition.x;
   }

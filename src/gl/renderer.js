@@ -281,6 +281,24 @@ export default class Renderer {
     this._objects.add(this._tileSelector);
   }
 
+  addManyRandomBlueObjects() {
+    const mat = this._objectMaterials.newMaterial({
+      color: 0x0000ff,
+      opacity: 0.55,
+      transparent: true
+    });
+    for (let i = 0; i < 16000; i++) {
+      this._objects.add(
+        new MapObject(2)
+          .material(mat)
+          .setWorldPosition(
+            Math.floor(Math.random() * MAP_TILES_WIDE),
+            Math.floor(Math.random() * MAP_TILES_HIGH)
+          )
+      );
+    }
+  }
+
   windowOffsetToSceneCoordinate(offsetX, offsetY) {
     const sceneX = this._camera.position.x + offsetX;
     const sceneY = this._camera.position.y + this.height() - offsetY;
