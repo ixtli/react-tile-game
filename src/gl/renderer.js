@@ -41,7 +41,8 @@ export default class Renderer {
    * @type {Object.<String, *>}
    */
   static RENDERER_OPTIONS = {
-    antialias: false
+    antialias: false,
+    stencil: false
   };
 
   /**
@@ -254,7 +255,7 @@ export default class Renderer {
 
     this._scene.background = this._backgroundColor;
     this._renderer.setPixelRatio(window.devicePixelRatio);
-    //this._renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this._renderer.shadowMap.type = THREE.PCFShadowMap;
     this._camera.position.z = 100;
 
     // Add sparse object groups
@@ -712,7 +713,7 @@ export default class Renderer {
    * Toggle frame rendering.
    */
   toggleRendering() {
-    if (this._rendering) {
+    if (!this._rendering) {
       this.startRendering();
     } else {
       this.stopRendering();

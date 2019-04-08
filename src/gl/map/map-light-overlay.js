@@ -4,7 +4,9 @@ import { TILE_PIXEL_LENGTH } from "../../config";
 export default class MapLighting {
   static RENDER_TARGET_OPTIONS = {
     magFilter: THREE.NearestFilter,
-    antialias: true
+    stencilBuffer: false,
+    depthBuffer: false,
+    antialias: false
   };
 
   /**
@@ -28,7 +30,13 @@ export default class MapLighting {
    */
   _mesh = new THREE.Mesh(
     new THREE.PlaneBufferGeometry(1, 1),
-    new THREE.MeshPhongMaterial({ shininess: 0, flatShading: true })
+    new THREE.MeshPhongMaterial({
+      shininess: 0,
+      flatShading: true,
+      specular: 0,
+      reflectivity: 0
+    })
+    //new THREE.MeshLambertMaterial({color: "white"})
   );
 
   /**
@@ -78,6 +86,7 @@ export default class MapLighting {
     const mat = new THREE.MeshBasicMaterial({ color: "blue" });
     const cube = new THREE.Mesh(block, mat);
     cube.castShadow = true;
+    cube.receiveShadow = false;
     return cube;
   }
 
@@ -106,7 +115,6 @@ export default class MapLighting {
       blendEquation: THREE.AddEquation,
       blendSrc: THREE.DstColorFactor,
       blendDst: THREE.OneMinusDstAlphaFactor
-
     });
 
     this.resize(64, 64);
