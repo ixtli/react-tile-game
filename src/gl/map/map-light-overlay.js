@@ -4,8 +4,7 @@ import { TILE_PIXEL_LENGTH } from "../../config";
 export default class MapLighting {
   static RENDER_TARGET_OPTIONS = {
     magFilter: THREE.NearestFilter,
-    minFilter: THREE.NearestFilter,
-    antialias: false
+    antialias: true
   };
 
   /**
@@ -58,7 +57,7 @@ export default class MapLighting {
    * @type {AmbientLight}
    * @private
    */
-  _ambientLight = new THREE.AmbientLight("white", 0.75);
+  _ambientLight = new THREE.AmbientLight("white", 0.5);
 
   /**
    *
@@ -67,6 +66,21 @@ export default class MapLighting {
    */
   _sceneObject = new THREE.Mesh();
 
+  /**
+   *
+   * @param width
+   * @param height
+   * @return {Mesh}
+   * @private
+   */
+  static _generateWall(width, height) {
+    const block = new THREE.BoxBufferGeometry(width, height, 10);
+    const mat = new THREE.MeshBasicMaterial({ color: "blue" });
+    const cube = new THREE.Mesh(block, mat);
+    cube.castShadow = true;
+    return cube;
+  }
+
   constructor() {
     this._mesh.position.set(0, 0, 0);
     this._mesh.receiveShadow = true;
@@ -74,27 +88,24 @@ export default class MapLighting {
     this._scene.add(this._mesh);
 
     this._camera.position.set(0, 0, 5);
-    this._camera.lookAt(0, 0, 5);
 
-    this._light = new THREE.PointLight("white", 0.75, 20);
+    this._light = new THREE.PointLight("white", 6, 0);
     this._light.castShadow = true;
+    this._light.shadow.mapSize.x = 64;
+    this._light.shadow.mapSize.y = 64;
     this._scene.add(this._light);
     this._scene.add(this._ambientLight);
 
-    const block = new THREE.BoxBufferGeometry(1, 1, 1);
-    const mat = new THREE.MeshBasicMaterial({ color: "blue" });
-    const cube = new THREE.Mesh(block, mat);
-    cube.castShadow = true;
-    this._cube = cube;
-    this._scene.add(cube);
+    this._cube = MapLighting._generateWall(10, 1);
+    this._scene.add(this._cube);
 
     this._sceneObject.material = new THREE.MeshBasicMaterial({
       side: THREE.FrontSide,
       transparent: true,
       blending: THREE.CustomBlending,
       blendEquation: THREE.AddEquation,
-      blendSrc: THREE.OneMinusDstAlphaFactor,
-      blendDst: THREE.SrcColorFactor
+      blendSrc: THREE.DstColorFactor,
+      blendDst: THREE.OneMinusDstAlphaFactor
 
     });
 
@@ -129,6 +140,8 @@ export default class MapLighting {
       MapLighting.RENDER_TARGET_OPTIONS
     );
 
+    console.log("shadow render target:", rWidth, rHeight);
+
     this._target.texture.generateMipmaps = false;
 
     this._mesh.geometry.dispose();
@@ -137,7 +150,7 @@ export default class MapLighting {
     this._mesh.position.y = rHeight;
 
     this._cube.position.set(rWidth - 2, rHeight - 2, 0);
-    this._light.position.set(rWidth, rHeight, 15);
+    this._light.position.set(rWidth, rHeight, 1);
 
     this._camera.right = rWidth;
     this._camera.top = rHeight;

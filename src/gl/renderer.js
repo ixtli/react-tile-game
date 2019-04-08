@@ -254,6 +254,7 @@ export default class Renderer {
 
     this._scene.background = this._backgroundColor;
     this._renderer.setPixelRatio(window.devicePixelRatio);
+    //this._renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this._camera.position.z = 100;
 
     // Add sparse object groups
