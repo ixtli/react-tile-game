@@ -58,7 +58,7 @@ export default class Chunk {
    * @type {WebGLRenderTarget}
    * @private
    */
-  _texture = new THREE.WebGLRenderTarget(
+  _target = new THREE.WebGLRenderTarget(
     CHUNK_PIXEL_LENGTH,
     CHUNK_PIXEL_LENGTH,
     Chunk.RENDER_TARGET_OPTIONS
@@ -70,7 +70,7 @@ export default class Chunk {
    * @private
    */
   _material = new THREE.MeshBasicMaterial({
-    map: this._texture.texture,
+    map: this._target.texture,
     ...Chunk.MATERIAL_OPTIONS
   });
 
@@ -110,7 +110,7 @@ export default class Chunk {
   _dirty = false;
 
   constructor() {
-    this._texture.texture.generateMipmaps = false;
+    this._target.texture.generateMipmaps = false;
     this._mesh.position.z = 0;
     this._fill();
   }
@@ -190,7 +190,7 @@ export default class Chunk {
       return false;
     }
 
-    renderer.setRenderTarget(this._texture);
+    renderer.setRenderTarget(this._target);
     renderer.render(this._scene, camera);
     this._dirty = false;
     return true;
@@ -231,9 +231,9 @@ export default class Chunk {
   }
 
   dispose() {
-    this._texture.dispose();
+    this._target.dispose();
     this._material.dispose();
-    this._texture = null;
+    this._target = null;
     this._material = null;
     this._mesh = null;
     this._scene = null;

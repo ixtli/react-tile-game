@@ -17,6 +17,7 @@ import TWEEN from "@tweenjs/tween.js";
 import { SparseObjectManager } from "./map/sparse-object-manager";
 import ObjectMaterialManager from "./map/object-materials-manager";
 import MapObject from "./map/map-object";
+import MapLighting from "./map/map-light-overlay";
 
 export default class Renderer {
   /**
@@ -40,7 +41,6 @@ export default class Renderer {
    * @type {Object.<String, *>}
    */
   static RENDERER_OPTIONS = {
-    stencil: false,
     antialias: false
   };
 
@@ -224,6 +224,20 @@ export default class Renderer {
   _objects = new SparseObjectManager();
 
   /**
+   *
+   * @type {MapLighting}
+   * @private
+   */
+  _lighting = new MapLighting();
+
+  /**
+   *
+   * @type {boolean}
+   * @private
+   */
+  _showLighting = true;
+
+  /**
    * Constructs the renderer and sets initial values like the Z position of the
    * camera that shouldn't really ever change through the life of the renderer.
    *
@@ -244,6 +258,7 @@ export default class Renderer {
 
     // Add sparse object groups
     this._scene.add(this._objects.group());
+    this._scene.add(this._lighting.sceneObject());
 
     this._initTileMaterials();
     this._initSparseObjects();
@@ -260,10 +275,10 @@ export default class Renderer {
     const hMat = this._objectMaterials.newMaterial({
       color: 0xffff00,
       opacity: 0.55,
-      transparent: true,
+      transparent: true
     });
     this._tileHighlighter = new MapObject(5);
-    this._tileHighlighter.material(hMat).setWorldPosition(0,0);
+    this._tileHighlighter.material(hMat).setWorldPosition(0, 0);
     this._objects.add(this._tileHighlighter);
 
     const mat = this._objectMaterials.newMaterial({
@@ -314,6 +329,9 @@ export default class Renderer {
       offsetX,
       offsetY
     );
+
+    this._lighting.lightPos(sceneX + this.width(), sceneY + this.height());
+
     const { x, y } = this.worldTileForSceneCoordinate(sceneX, sceneY);
     // noinspection JSSuspiciousNameCombination
     this._tileHighlighter.setWorldPosition(Math.floor(x), Math.floor(y));
@@ -461,14 +479,14 @@ export default class Renderer {
    * Resizes the scene. A very computationally intensive procedure so it must be
    * debounced.
    *
-   * @param width {number}
-   * @param height {number}
+   * @param windowWidth {number}
+   * @param windowHeight {number}
    */
-  resize = (width, height) => {
-    this._renderer.setSize(width, height);
+  resize = (windowWidth, windowHeight) => {
+    this._renderer.setSize(windowWidth, windowHeight);
     this._camera.left = 0;
-    this._camera.right = width;
-    this._camera.top = height;
+    this._camera.right = windowWidth;
+    this._camera.top = windowHeight;
     this._camera.bottom = 0;
     this._camera.near = -1;
     this._camera.far = 2000;
@@ -477,24 +495,27 @@ export default class Renderer {
     this._camera.updateProjectionMatrix();
 
     // Resize the chunks themselves.
-    this._chunkRenderer.resize(width, height, this._scene);
+    this._chunkRenderer.resize(windowWidth, windowHeight, this._scene);
     this._objects.offsetForChunkRenderer(this._chunkRenderer);
+
+    const { width, height } = this._chunkRenderer.sceneDimensions();
+
+    this._lighting.resize(width, height);
 
     // How far the camera can move from the center of the scene before chunks
     // have to be shimmied around
-    const sceneDimensions = this._chunkRenderer.sceneDimensions();
     this._panBoundary.offset = CHUNK_PIXEL_LENGTH;
-    this._panBoundary.top = sceneDimensions.height - height;
+    this._panBoundary.top = height - windowHeight;
     this._panBoundary.bottom = 0;
     this._panBoundary.left = 0;
-    this._panBoundary.right = sceneDimensions.width - width;
+    this._panBoundary.right = width - windowWidth;
 
     // Resize the boundary away from which you're allowed to pan off the maps
     // edges.
     const boundary = this._distanceAllowedToPanOffMap;
     this._offMapBoundary.left = -boundary;
-    this._offMapBoundary.right = sceneDimensions.width - (width - boundary);
-    this._offMapBoundary.top = sceneDimensions.height - (height - boundary);
+    this._offMapBoundary.right = width - (windowWidth - boundary);
+    this._offMapBoundary.top = height - (windowHeight - boundary);
     this._offMapBoundary.bottom = -boundary;
   };
 
@@ -575,6 +596,20 @@ export default class Renderer {
       case "3":
         cy -= Renderer.KEY_JUMP_SIZE;
         cx += Renderer.KEY_JUMP_SIZE;
+        break;
+      case "l":
+        this._showLighting = !this._showLighting;
+        if (this._showLighting) {
+          this._scene.add(this._lighting.sceneObject());
+        } else {
+          this._scene.remove(this._lighting.sceneObject());
+        }
+        break;
+      case "+":
+        this._lighting.offsetAmbientLightIntensity(.05);
+        break;
+      case "-":
+        this._lighting.offsetAmbientLightIntensity(-0.05);
         break;
       case " ":
         this.toggleRendering();
@@ -828,6 +863,7 @@ export default class Renderer {
     TWEEN.update(time);
 
     this._applyCameraDelta();
+    this._lighting.render(this._renderer);
     this._chunkRenderer.update(this._renderer);
 
     this._renderer.setRenderTarget(null);
