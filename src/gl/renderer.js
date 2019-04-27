@@ -260,7 +260,8 @@ export default class Renderer {
 
     // Add sparse object groups
     this._scene.add(this._objects.group());
-    this._scene.add(this._lighting.sceneObject());
+    this._scene.add(this._lighting.colorObject());
+    this._scene.add(this._lighting.shadowObject());
 
     this._initTileMaterials();
     this._initSparseObjects();
@@ -269,7 +270,7 @@ export default class Renderer {
   _initTileMaterials() {
     const count = 9;
     for (let i = 0; i < count; i += 1) {
-      this._tileMaterials.greenTile(i * 0.005);
+      this._tileMaterials.greenTile(i * 0.02);
     }
   }
 
@@ -299,7 +300,7 @@ export default class Renderer {
       opacity: 0.55,
       transparent: true
     });
-    for (let i = 0; i < 16000; i++) {
+    for (let i = 0; i < 1600; i++) {
       this._objects.add(
         new MapObject(2)
           .material(mat)
@@ -602,16 +603,16 @@ export default class Renderer {
       case "l":
         this._showLighting = !this._showLighting;
         if (this._showLighting) {
-          this._scene.add(this._lighting.sceneObject());
+          this._scene.add(this._lighting.shadowObject());
         } else {
-          this._scene.remove(this._lighting.sceneObject());
+          this._scene.remove(this._lighting.shadowObject());
         }
         break;
       case "+":
-        this._lighting.offsetAmbientLightIntensity(.05);
+        this._lighting.offsetAmbientLightIntensity(.25);
         break;
       case "-":
-        this._lighting.offsetAmbientLightIntensity(-0.05);
+        this._lighting.offsetAmbientLightIntensity(-0.25);
         break;
       case " ":
         this.toggleRendering();

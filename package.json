@@ -5,10 +5,11 @@
   "homepage": "https://ixtli.github.io/react-tile-game",
   "dependencies": {
     "@tweenjs/tween.js": "^17.3.0",
+    "fsevents": "^2.0.6",
     "react": "^16.8.6",
     "react-dom": "^16.8.6",
-    "react-scripts": "2.1.8",
-    "stats-js": "^1.0.0",
+    "react-scripts": "3.0.0",
+    "stats-js": "1.0.1",
     "styled-components": "^4.2.0",
     "three": "^0.103.0"
   },

@@ -18,7 +18,6 @@ export default class Chunk {
   static CHUNK_DEBUG_SPACING = 0;
 
   static MATERIAL_OPTIONS = {
-    blending: THREE.NoBlending,
     side: THREE.FrontSide
   };
 
