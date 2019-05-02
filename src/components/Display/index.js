@@ -27,4 +27,8 @@ class Display extends React.Component {
 
 export default styled(Display)`
   display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: -1000;
 `;

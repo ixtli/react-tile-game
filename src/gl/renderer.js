@@ -18,6 +18,7 @@ import { SparseObjectManager } from "./map/sparse-object-manager";
 import ObjectMaterialManager from "./map/object-materials-manager";
 import MapObject from "./map/map-object";
 import MapLighting from "./map/map-light-overlay";
+import MapLight from "./map/map-light";
 
 export default class Renderer {
   /**
@@ -265,6 +266,9 @@ export default class Renderer {
 
     this._initTileMaterials();
     this._initSparseObjects();
+
+
+    this.addManyRandomLights();
   }
 
   _initTileMaterials() {
@@ -309,6 +313,14 @@ export default class Renderer {
             Math.floor(Math.random() * MAP_TILES_HIGH)
           )
       );
+    }
+  }
+
+  addManyRandomLights() {
+    for (let i = 0; i < 5; i++) {
+      const light = MapLight.NewPoint(0,1,0);
+      light.shadow(true);
+      this._lighting.addLight(light);
     }
   }
 

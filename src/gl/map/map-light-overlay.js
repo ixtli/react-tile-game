@@ -1,6 +1,5 @@
 import * as THREE from "three";
 import { TILE_PIXEL_LENGTH } from "../../config";
-import MapLight from "./map-light";
 
 export default class MapLighting {
   static SHADOW_TARGET_OPTIONS = {
@@ -99,17 +98,10 @@ export default class MapLighting {
 
   /**
    *
-   * @type {number}
+   * @type {WeakMap<MapLight, number>}
    * @private
    */
-  _width = 0;
-
-  /**
-   *
-   * @type {number}
-   * @private
-   */
-  _height = 0;
+  _lightIndexWeakMap = new WeakMap();
 
   static _defaultVertexShader = `
 varying vec2 vUv;
@@ -163,22 +155,22 @@ void main() {
    */
   addLight(light) {
     this._lights.push(light);
+    this._lightIndexWeakMap.set(light, this._lights.length - 1);
     this._scene.add(light.light());
     return light;
   }
 
-  makeTestLights() {
-    if (window.TESTLIGHTS) {
-      return;
-    }
-
-    console.log("adding test lights");
-
-    window.TESTLIGHTS = true;
-
-    this.addLight(MapLight.NewPoint("white", 5, 0).tint(false));
-    this.addLight(MapLight.NewPoint("red", 1, 0).tint(true));
-    this.addLight(MapLight.NewPoint("purple", 1, 0).tint(true));
+  /**
+   *
+   * @param light
+   * @return {MapLighting}
+   */
+  removeLight(light) {
+    const idx = this._lightIndexWeakMap.get(light);
+    console.assert(idx !== undefined, "unknown light");
+    this._lights.splice(idx, 1);
+    this._scene.remove(light.light());
+    return this;
   }
 
   constructor() {
@@ -246,8 +238,6 @@ void main() {
       rHeight,
       MapLighting.SHADOW_TARGET_OPTIONS
     );
-
-    this.makeTestLights();
 
     this._object.material.uniforms = {
       inct: { value: this._target.texture }

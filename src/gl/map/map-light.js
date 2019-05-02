@@ -5,7 +5,19 @@ export default class MapLight {
    *
    * @type {number}
    */
-  static LIGHT_Z = 2;
+  static LIGHT_Z = 1;
+
+  /**
+   *
+   * @type {number}
+   */
+  static MAX_ACTIVE_SHADOW_CASTING_LIGHTS = 10;
+
+  /**
+   *
+   * @type {number}
+   */
+  static currentShadowCastingLightCount = 0;
 
   /**
    *
@@ -50,6 +62,27 @@ export default class MapLight {
 
   /**
    *
+   * @type {number}
+   * @private
+   */
+  _worldX = 0;
+
+  /**
+   *
+   * @type {number}
+   * @private
+   */
+  _worldY = 0;
+
+  /**
+   *
+   * @type {boolean}
+   * @private
+   */
+  _shouldCastShadow = false;
+
+  /**
+   *
    * @param color {string|number=} [color=0x000000]
    * @param intensity {number=} [intensity=1]
    * @param distance {number=} [distance=0]
@@ -66,13 +99,48 @@ export default class MapLight {
   }
 
   constructor(light) {
-    light.castShadow = true;
-    light.shadow.mapSize.x = 64;
-    light.shadow.mapSize.y = 64;
-
     this._intensity = light.intensity;
     this._color = light.color;
     this._light = light;
+  }
+
+  /**
+   *
+   * @param shouldCastShadow {?boolean} Whether or not it should cast a shadow
+   * @return {boolean|MapLight}
+   */
+  shadow(shouldCastShadow) {
+    if (shouldCastShadow === undefined) {
+      return this._shouldCastShadow;
+    }
+
+    if (shouldCastShadow === this._shouldCastShadow) {
+      return this;
+    }
+
+    if (!shouldCastShadow) {
+      this._light.castShadow = false;
+      this._shouldCastShadow = false;
+      console.assert(MapLight.currentShadowCastingLightCount > 0);
+      MapLight.currentShadowCastingLightCount--;
+      return this;
+    }
+
+    if (
+      MapLight.currentShadowCastingLightCount >=
+      MapLight.MAX_ACTIVE_SHADOW_CASTING_LIGHTS
+    ) {
+      console.error("Too many active shadow-casting lights. Skipping.");
+      return this;
+    }
+
+    MapLight.currentShadowCastingLightCount++;
+
+    this._shouldCastShadow = true;
+    this._light.castShadow = true;
+    this._light.shadow.mapSize.x = 64;
+    this._light.shadow.mapSize.y = 64;
+    return this;
   }
 
   /**
@@ -143,6 +211,20 @@ export default class MapLight {
 
   /**
    *
+   * @param newColor {?Color}
+   * @return {Color|MapLight}
+   */
+  color(newColor) {
+    if (newColor !== undefined) {
+      this._light.color = this._color = newColor;
+      return this;
+    }
+
+    return this._color;
+  }
+
+  /**
+   *
    * @return {MapLight}
    */
   hide() {
@@ -159,6 +241,10 @@ export default class MapLight {
     return this;
   }
 
+  /**
+   *
+   * @param on {boolean} True if we're going into tint mode
+   */
   tintMode(on) {
     if (on) {
       // We hide if we're not meant to tint
